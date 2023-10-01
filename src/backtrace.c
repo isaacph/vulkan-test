@@ -110,6 +110,13 @@ void init_exceptions(bool threaded) {
     signal(SIGTERM, sigHandler);
 }
 
+#include <minwindef.h>
+#include <windows.h>
+#include <winnt.h>
+#include <dbghelp.h>
+
+// TODO: add thread sync since Win32 API doesn't support concurrency here
+// once I start multithreading
 void do_backtrace() {
     printf("Backtrace:\n");
 
@@ -125,7 +132,11 @@ void do_backtrace() {
     process = GetCurrentProcess();
 
     SymSetOptions(SYMOPT_LOAD_LINES);
-    SymInitialize( process, NULL, TRUE );
+    if (!SymInitialize( process, NULL, TRUE )) {
+        DWORD error = GetLastError();
+        printf("Failed to initialize Win32 symbol reading. Error: %lu. Exiting\n", error);
+        exit(1);
+    }
 
     frames               = CaptureStackBackTrace( 0, WALK_LENGTH, stack, NULL );
     symbol               = ( SYMBOL_INFO * )calloc( sizeof( SYMBOL_INFO ) + 256 * sizeof( char ), 1 );
@@ -135,12 +146,22 @@ void do_backtrace() {
     // skip the first frames
     for( i = 0; i < frames; i++ )
     {
-        SymFromAddr( process, ( DWORD64 )( stack[ i ] ), 0, symbol );
-        SymGetLineFromAddr64(process, (DWORD64) stack[i], &dwDisplacement, &line);
+        DWORD64 addr = (DWORD64)(stack[i]);
+        if(!SymFromAddr( process, addr, 0, symbol)) {
+            DWORD error = GetLastError();
+            printf("Failed to get symbol for frame %i, address: 0x%0llX. Error: %lu\n", i, addr, error);
+            continue;
+        }
+        if(!SymGetLineFromAddr64(process, addr, &dwDisplacement, &line)) {
+            DWORD error = GetLastError();
+            printf("Failed to get line for frame %i, address: 0x%0llX. Error: %lu\n", i, addr, error);
+            continue;
+        }
 
         printf("%i: %s:%s:%lu - 0x%0llX\n", frames - i - 1, line.FileName, symbol->Name, line.LineNumber, symbol->Address);
     }
 
     free( symbol );
+    SymCleanup(process);
 }
 #endif
