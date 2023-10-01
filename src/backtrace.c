@@ -100,6 +100,12 @@ void sigHandler(int s) {
     exit(1);
 }
 
+LONG WINAPI WindowsExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo) {
+    printf("Caught Windows exception: %lu", ExceptionInfo->ExceptionRecord->ExceptionCode);
+    do_backtrace();
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
 void init_exceptions(bool threaded) {
     // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/signal?view=msvc-170
     signal(SIGABRT, sigHandler);
@@ -108,12 +114,8 @@ void init_exceptions(bool threaded) {
     signal(SIGINT, sigHandler);
     signal(SIGSEGV, sigHandler);
     signal(SIGTERM, sigHandler);
+    SetUnhandledExceptionFilter(WindowsExceptionFilter);
 }
-
-#include <minwindef.h>
-#include <windows.h>
-#include <winnt.h>
-#include <dbghelp.h>
 
 // TODO: add thread sync since Win32 API doesn't support concurrency here
 // once I start multithreading

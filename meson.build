@@ -1,5 +1,8 @@
 project('vulkan-test', 'c')
 add_global_arguments('-std=c17', language: 'c')
+add_global_arguments('-fsanitize=address', language: 'c')
+
+# asan_dep_1 = meson.get_compiler('c').find_library('libclang_rt.asan-x86_64.a')
 
 dependencies = [
   dependency('glfw3'),
@@ -14,7 +17,7 @@ sources = [
   'src/render_util.c',
   ]
 
-link = []
+link = ['-fsanitize=address', '-shared-libasan']
 if host_machine.system() == 'windows'
   link += ['-ldbghelp']
 endif
@@ -37,3 +40,4 @@ custom_target('copy debug script',
   command : ['cp', '@INPUT@', '@OUTPUT@'],
   install : false,
   build_by_default : true)
+
