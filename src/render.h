@@ -1,17 +1,15 @@
 #ifndef RENDER_H_INCLUDED
 #define RENDER_H_INCLUDED
 
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 struct RenderContext {
-    uint32_t instanceVersion;
-    uint32_t extensionsCount;
-    VkExtensionProperties* extensions;
-    uint32_t layersCount;
-    VkLayerProperties* layers;
+    VkInstance instance;
+    VkAllocationCallbacks* allocationCallbacks;
+    PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr;
 };
 
-struct RenderContext init_render();
-void free_render(struct RenderContext* renderContext);
+struct RenderContext rc_init();
+void rc_cleanup(struct RenderContext* renderContext);
 
 #endif

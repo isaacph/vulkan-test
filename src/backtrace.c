@@ -1,3 +1,4 @@
+#include <windows.h>
 #include "backtrace.h"
 #include <backtrace.h>
 #include <errhandlingapi.h>
@@ -10,10 +11,11 @@
 
 #if defined(_WIN32)
 #include <minwindef.h>
-#include <windows.h>
 #include <winnt.h>
 #include <dbghelp.h>
 #endif
+
+#define WALK_LENGTH 100
 
 void do_backtrace();
 void force_interrupt();
@@ -122,7 +124,6 @@ void init_exceptions(bool threaded) {
 void do_backtrace() {
     printf("Backtrace:\n");
 
-    const uint32_t WALK_LENGTH = 100;
     unsigned int   i;
     void         * stack[ WALK_LENGTH ];
     unsigned short frames;
