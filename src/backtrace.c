@@ -16,7 +16,7 @@
 
 #define WALK_LENGTH 100
 
-void do_backtrace();
+void do_backtrace(bool fatal);
 void force_interrupt();
 
 void exception_msg(const char* message) {
@@ -97,13 +97,12 @@ const char* signal_name(int s) {
 void sigHandler(int s) {
     printf("Exception: %s (%d)\n", signal_name(s), s);
 
-    do_backtrace();
-    exit(1);
+    do_backtrace(true);
 }
 
 LONG WINAPI WindowsExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo) {
-    printf("Caught Windows exception: %lu", ExceptionInfo->ExceptionRecord->ExceptionCode);
-    do_backtrace();
+    printf("Caught Windows exception: %lu\n", ExceptionInfo->ExceptionRecord->ExceptionCode);
+    do_backtrace(true);
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -120,7 +119,7 @@ void init_exceptions(bool threaded) {
 
 // TODO: add thread sync since Win32 API doesn't support concurrency here
 // once I start multithreading
-void do_backtrace() {
+void do_backtrace(bool fatal) {
     printf("Backtrace:\n");
 
     unsigned int   i;
@@ -163,7 +162,12 @@ void do_backtrace() {
         printf("%i: %s:%s:%lu - 0x%0llX\n", frames - i - 1, line.FileName, symbol->Name, line.LineNumber, symbol->Address);
     }
 
+    printf("Test4\n");
     free( symbol );
     SymCleanup(process);
+
+    if (fatal) {
+        exit(1);
+    }
 }
 #endif

@@ -9,9 +9,12 @@ struct RenderContext {
     VkQueue queue;
     VkSurfaceKHR surface;
     VkAllocationCallbacks* allocationCallbacks;
+    VkSwapchainKHR swapchain;
+    VkFormat swapchainFormat;
 };
 
 struct RenderContext rc_init(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr);
+void rc_swapchain_init(struct RenderContext* renderContext);
 void rc_cleanup(struct RenderContext* renderContext);
 
 #if defined(_WIN32)

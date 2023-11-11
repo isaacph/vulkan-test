@@ -17,9 +17,9 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 
 
 # Settings for configuring projects generated for an IDE
-# set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-# include_directories($ENV{UniversalCRTSdkDir}/Include/ucrt)
-# include_directories($ENV{UniversalCRTSdkDir}/Include/10.0.10056.0/ucrt)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+include_directories($ENV{UniversalCRTSdkDir}/Include/ucrt)
+include_directories($ENV{UniversalCRTSdkDir}/Include/10.0.10056.0/ucrt)
 
 # # this doesn't work on rerun
 # # disable find package for non-subprojects
@@ -40,7 +40,7 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 # add_subdirectory(subprojects/volk)
 
 find_package(VulkanHeaders)
-# find_package(VulkanLoader)
+find_package(VulkanLoader)
 
 # include(CMakeFindDependencyMacro)
 
@@ -68,7 +68,7 @@ find_package(VulkanHeaders)
 
 #set(ENV{VULKAN_SDK} "${CMAKE_SOURCE_DIR}/subprojects/Vulkan-Headers")
 
-set(SUBSYSTEM_LINKER_OPTIONS "/SUBSYSTEM:WINDOWS")
+# set(SUBSYSTEM_LINKER_OPTIONS "/SUBSYSTEM:WINDOWS")
 
 configure_file(src/config.h.in config.h)
 add_executable(VulkanTest
@@ -90,7 +90,7 @@ target_include_directories(VulkanTest PRIVATE src)
 # # target_include_directories(VulkanTest PRIVATE "subprojects/volk")
 
 target_link_libraries(VulkanTest
-    #     Vulkan::Loader
+    Vulkan::Loader
     Vulkan::Headers
 # vvl # should be Vulkan::Validationlayers :( actually can't link this lol
 #    volk::volk

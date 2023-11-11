@@ -29,6 +29,7 @@ void init_instance_functions(VkInstance instance) {
     check(vkGetPhysicalDeviceProperties = (PFN_vkGetPhysicalDeviceProperties)load(instance, "vkGetPhysicalDeviceProperties"));
     check(vkDestroyInstance = (PFN_vkDestroyInstance)load(instance, "vkDestroyInstance"));
     check(vkDestroyDevice = (PFN_vkDestroyDevice)load(instance, "vkDestroyDevice"));
+    check(vkDestroySurfaceKHR = (PFN_vkDestroySurfaceKHR)load(instance, "vkDestroySurfaceKHR"));
 #if defined(_WIN32)
     check(vkCreateWin32SurfaceKHR = (PFN_vkCreateWin32SurfaceKHR)load(instance, "vkCreateWin32SurfaceKHR"));
 #endif

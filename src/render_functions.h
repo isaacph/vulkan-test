@@ -67,6 +67,7 @@ EXTERN PFN_vkDestroyInstance vkDestroyInstance INIT;
 EXTERN PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr INIT;
 EXTERN PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties INIT;
 EXTERN PFN_vkDestroyDevice vkDestroyDevice INIT;
+EXTERN PFN_vkDestroySurfaceKHR vkDestroySurfaceKHR INIT;
 #if defined(_WIN32)
 EXTERN PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR INIT;
 #endif

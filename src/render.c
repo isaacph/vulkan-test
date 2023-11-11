@@ -16,7 +16,7 @@ const size_t ENABLE_EXTENSIONS_COUNT = 2;
 const char* const ENABLE_LAYERS[] = {
     "VK_LAYER_KHRONOS_validation",
 };
-const size_t ENABLE_LAYERS_COUNT = 0;
+const size_t ENABLE_LAYERS_COUNT = 1;
 
 const char* const ENABLE_DEVICE_EXTENSIONS[] = {
     "Not an extension",
@@ -73,7 +73,6 @@ struct RenderContext rc_init(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr)
     VkPhysicalDevice chosenPhysicalDevice = NULL;
     VkDevice device = NULL;
     VkQueue queue = NULL;
-    VkSurfaceKHR surface = VK_NULL_HANDLE;
 
     // initialize loader functions
     init_loader_functions(fp_vkGetInstanceProcAddr);
@@ -147,6 +146,10 @@ struct RenderContext rc_init(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr)
 
     // initialize vkInstance, vkDevice
     {
+        const char* en_layers[] = {
+            "VK_LAYER_KHRONOS_validation",
+        };
+
         // make and load instance
         printf("Initializing vkInstance\n");
         VkApplicationInfo app_info = {
@@ -162,6 +165,8 @@ struct RenderContext rc_init(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr)
             .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             .flags = (VkInstanceCreateFlags) 0,
             .pApplicationInfo = &app_info,
+            // .enabledLayerCount = 1,
+            // .ppEnabledLayerNames = en_layers,
             .enabledLayerCount = ENABLE_LAYERS_COUNT,
             .ppEnabledLayerNames = ENABLE_LAYERS,
             .enabledExtensionCount = ENABLE_EXTENSIONS_COUNT,
@@ -352,6 +357,7 @@ struct RenderContext rc_init(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr)
         .queue = queue,
         .allocationCallbacks = allocationCallbacks,
         .surface = VK_NULL_HANDLE, // defined by platform-specific code
+        .swapchain = VK_NULL_HANDLE,
     };
 
     free(extensions);
@@ -360,10 +366,16 @@ struct RenderContext rc_init(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr)
     return renderContext;
 }
 
+void rc_swapchain_init(struct RenderContext* renderContext) {
+    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+    VkFormat swapchainFormat = 0;
+}
+
 void rc_cleanup(struct RenderContext *renderContext) {
     printf("Cleaning up Vulkan\n");
-    vkDestroyInstance(renderContext->instance, renderContext->allocationCallbacks);
+    vkDestroySurfaceKHR(renderContext->instance, renderContext->surface, renderContext->allocationCallbacks);
     vkDestroyDevice(renderContext->device, renderContext->allocationCallbacks);
+    vkDestroyInstance(renderContext->instance, renderContext->allocationCallbacks);
 }
 
 // windows-specific init
@@ -393,6 +405,8 @@ struct RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
             exception_msg("Invalid vulkan-1.dll");
         }
     }
+
+    // set up the swapchain
 
     // call regular platform-agnostic init
     struct RenderContext context = rc_init(fp_vkGetInstanceProcAddr);

@@ -33,6 +33,7 @@ int main() {
     }
 
     init_exceptions(false);
+
     HINSTANCE hInstance = GetModuleHandle(NULL);
 
     // Register the window class.
