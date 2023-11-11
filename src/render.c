@@ -146,10 +146,6 @@ struct RenderContext rc_init(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr)
 
     // initialize vkInstance, vkDevice
     {
-        const char* en_layers[] = {
-            "VK_LAYER_KHRONOS_validation",
-        };
-
         // make and load instance
         printf("Initializing vkInstance\n");
         VkApplicationInfo app_info = {
@@ -165,8 +161,6 @@ struct RenderContext rc_init(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr)
             .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             .flags = (VkInstanceCreateFlags) 0,
             .pApplicationInfo = &app_info,
-            // .enabledLayerCount = 1,
-            // .ppEnabledLayerNames = en_layers,
             .enabledLayerCount = ENABLE_LAYERS_COUNT,
             .ppEnabledLayerNames = ENABLE_LAYERS,
             .enabledExtensionCount = ENABLE_EXTENSIONS_COUNT,
