@@ -1,6 +1,14 @@
 #ifndef UTIL_H_INCLUDED
 #define UTIL_H_INCLUDED
 
+// some useful stuff for win32
+#ifndef UNICODE
+#define UNICODE
+#endif
+#ifndef _UNICODE
+#define _UNICODE
+#endif
+
 #ifdef _MSC_VER
 #define MAX(a, b) (__max(a, b))
 #define MIN(a, b) (__min(a, b))

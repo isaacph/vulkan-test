@@ -1,46 +1,112 @@
-#include <stdlib.h>
-// #include <GLFW/glfw3.h>
+#include <windows.h>
 #include <stdio.h>
-#include "render.h"
+//#include "render.h"
 #include "backtrace.h"
-#include "app.h"
+#include "ccomexample.h"
 
-// void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
-//     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-//         glfwSetWindowShouldClose(window, GLFW_TRUE);
-//     }
-// }
+// making a bunch of modes
+// all modes will have the actual game in a separate process
+// the original process is there to handle crashes, handle logging, and start the game
+// winmain mode will start in winmain, and redirect console to a log file
+// crt mode will start in _main, and redirect console to the original console:q
+//
 
-int main(int argc, char **argv) {
-    init_exceptions(true);
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lparam);
 
-    // GLFWwindow* window;
+// int WinMain(
+//         HINSTANCE hInstance,
+//         HINSTANCE hPrevInstance,
+//         LPSTR lpCmdLine,
+//         int nCmdShow) {
+int main() {
+    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    if (FAILED(hr)) {
+        printf("Error initializing COM library: %ld", hr);
+        return 1;
+    }
 
-    // if (!glfwInit())
-    //     return -1;
+    init_exceptions(false);
+    HINSTANCE hInstance = GetModuleHandle(NULL);
 
-    // glfwSetErrorCallback(errorCallback);
+    // Register the window class.
+    const wchar_t CLASS_NAME[]  = L"Sample Window Class";
+    
+    WNDCLASSW wc = {0};
+    wc.lpfnWndProc = WindowProc;
+    wc.hInstance = hInstance;
+    wc.lpszClassName = CLASS_NAME;
+    wc.hIcon = LoadIcon(0, IDI_APPLICATION);
+    wc.hCursor = LoadCursor(0, IDC_ARROW);
+    wc.hbrBackground = GetStockObject(WHITE_BRUSH);
+    RegisterClassW(&wc);
 
-    // glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);
+    // Create the window.
+    HWND hwnd = CreateWindowEx(
+        0,                              // Optional window styles.
+        CLASS_NAME,                     // Window class
+        L"Learn to Program Windows",    // Window text
+        WS_OVERLAPPEDWINDOW,            // Window style
 
-    // window = glfwCreateWindow(640, 480, APP_NAME, NULL, NULL);
-    // if (!window) {
-    //     glfwTerminate();
-    //     return -1;
-    // }
-    // glfwMakeContextCurrent(window);
-    // glfwSetKeyCallback(window, onKey);
+        // Size and position
+        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
 
-    struct RenderContext renderContext = rc_init();
+        NULL,       // Parent window    
+        NULL,       // Menu
+        hInstance,  // Instance handle
+        NULL        // Additional application data
+        );
 
-    // while (!glfwWindowShouldClose(window)) {
-    //     glfwSwapBuffers(window);
-    //     glfwPollEvents();
-    // }
+    if (hwnd == NULL)
+    {
+        exception_msg("Invalid window handle");
+        return 0;
+    }
 
-    // glfwTerminate();
-    rc_cleanup(&renderContext);
+    ShowWindow(hwnd, SW_SHOW);
 
-    printf("Application control ending\n");
+    //struct RenderContext renderContext = rc_init_win32(hInstance, hwnd);
+
+    // Run the message loop.
+
+    MSG msg = {0};
+    while (GetMessage(&msg, NULL, 0, 0) > 0)
+    {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+
+    //rc_cleanup(&renderContext);
+    CoUninitialize();
+    return 0;
+}
+
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        return 0;
+
+    case WM_LBUTTONDOWN:
+        printf("Received left mouse button\n");
+        // open file dialog lmfao
+        //return CCOMExample();
+        return 0;
+    case WM_PAINT:
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+
+            // All painting occurs here, between BeginPaint and EndPaint.
+
+            FillRect(hdc, &ps.rcPaint, (HBRUSH) (COLOR_WINDOW+1));
+
+            EndPaint(hwnd, &ps);
+        }
+        return 0;
+
+    }
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 

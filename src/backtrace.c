@@ -1,6 +1,5 @@
 #include <windows.h>
 #include "backtrace.h"
-#include <backtrace.h>
 #include <errhandlingapi.h>
 #include <excpt.h>
 #include <signal.h>
@@ -32,7 +31,7 @@ void exception() {
 
 void force_interrupt() {
 #if defined(_WIN32)
-    raise(SIGINT);
+    raise(SIGSEGV);
 #endif
 }
 
@@ -155,7 +154,7 @@ void do_backtrace() {
             printf("Failed to get symbol for frame %i, address: 0x%0llX. Error: %lu\n", i, addr, error);
             continue;
         }
-        if(!SymGetLineFromAddr64(process, addr, &dwDisplacement, &line)) {
+        if(!SymGetLineFromAddr64(process, addr, &dwDisplacement, (PIMAGEHLP_LINE64) &line)) {
             DWORD error = GetLastError();
             printf("Failed to get line for frame %i, address: 0x%0llX. Error: %lu\n", i, addr, error);
             continue;

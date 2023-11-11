@@ -1,7 +1,6 @@
 #ifndef RENDER_UTIL_H_INCLUDED
 #define RENDER_UTIL_H_INCLUDED
 
-#include <stdint.h>
 #include <vulkan/vulkan_core.h>
 
 // caller must free return value

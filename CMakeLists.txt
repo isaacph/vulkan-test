@@ -7,30 +7,35 @@ project(VulkanTest
 
 add_compile_options(-fsanitize=address)
 add_link_options(-fsanitize=address)
-
-# set(CMAKE_C_STANDARD 11)
-# set(CMAKE_C_STANDARD_REQUIRED True)
-
-# use Ninja generator with MSVC with this to get intellisense on windows
-# outside of Visual Studio
+# # use Ninja generator with MSVC with this to get intellisense on windows
+# # outside of Visual Studio
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(CMAKE_PREFIX_PATH "/prefix")
-# set(as_subproject
-#     Vulkan::ValidationLayers
-#     Vulkan::Headers
-#     Vulkan::Loader
-#     volk::volk
-#     Vulkan::LayerSettings
-#     Vulkan::UtilityHeaders
-#     SPIRV-Headers::SPIRV-Headers
-#     SPIRV-Tools::SPIRV-Tools
-#     )
-# 
-# foreach(proj ${as_subproject})
-#     set(CMAKE_DISABLE_FIND_PACKAGE_${proj} TRUE)
-#     message(CMAKE_DISABLE_FIND_PACKAGE_${proj} ${CMAKE_DISABLE_FIND_PACKAGE_${proj}})
-# endforeach()
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED True)
+
+
+
+# Settings for configuring projects generated for an IDE
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+include_directories($ENV{UniversalCRTSdkDir}/Include/ucrt)
+include_directories($ENV{UniversalCRTSdkDir}/Include/10.0.10056.0/ucrt)
+
+set(as_subproject
+    Vulkan::ValidationLayers
+    Vulkan::Headers
+    Vulkan::Loader
+#    volk::volk
+    Vulkan::LayerSettings
+    Vulkan::UtilityHeaders
+    SPIRV-Headers::SPIRV-Headers
+    SPIRV-Tools::SPIRV-Tools
+    )
+
+foreach(proj ${as_subproject})
+    set(CMAKE_DISABLE_FIND_PACKAGE_${proj} TRUE)
+    message(CMAKE_DISABLE_FIND_PACKAGE_${proj} ${CMAKE_DISABLE_FIND_PACKAGE_${proj}})
+endforeach()
 
 # # this doesn't work on rerun
 # # disable find package for non-subprojects
@@ -40,15 +45,17 @@ set(CMAKE_PREFIX_PATH "/prefix")
 #     endif()
 # endmacro()
 
+set(VOLK_PULL_IN_VULKAN OFF)
+
+set(CMAKE_PREFIX_PATH "/prefix")
 add_subdirectory(subprojects/Vulkan-ValidationLayers)
 add_subdirectory(subprojects/Vulkan-Headers)
 add_subdirectory(subprojects/Vulkan-Loader)
 add_subdirectory(subprojects/Vulkan-Utility-Libraries)
 add_subdirectory(subprojects/SPIRV-Headers)
 add_subdirectory(subprojects/SPIRV-Tools)
-# set(VOLK_PULL_IN_VULKAN OFF)
-set(VOLK_INSTALL ON)
-add_subdirectory(subprojects/volk)
+# set(VOLK_INSTALL ON)
+# add_subdirectory(subprojects/volk)
 
 # include(CMakeFindDependencyMacro)
 
@@ -76,46 +83,58 @@ add_subdirectory(subprojects/volk)
 
 #set(ENV{VULKAN_SDK} "${CMAKE_SOURCE_DIR}/subprojects/Vulkan-Headers")
 
+set(SUBSYSTEM_LINKER_OPTIONS "/SUBSYSTEM:WINDOWS")
 
 configure_file(src/config.h.in config.h)
 add_executable(VulkanTest
     src/main.c
     src/render.c
     src/render_util.c
-    src/segfault.c
     src/backtrace.c
     src/segfault.c
+    src/render_functions.c
+    # src/ccomexample.c
     )
+# target_compile_definitions(VulkanTest PRIVATE UNICODE _UNICODE)
 # target_include_directories(VulkanTest PRIVATE src)
-# target_include_directories(VulkanTest PRIVATE "subprojects/Vulkan-Headers/include")
-# target_include_directories(VulkanTest PRIVATE "subprojects/volk")
+
 target_include_directories(VulkanTest PRIVATE src)
+# # target_include_directories(VulkanTest PRIVATE "subprojects/Vulkan-Headers/include")
+# # target_include_directories(VulkanTest PRIVATE "subprojects/volk")
 
 target_link_libraries(VulkanTest
     Vulkan::Loader
     Vulkan::Headers
     # vvl # should be Vulkan::Validationlayers :( actually can't link this lol
-    volk::volk
+#    volk::volk
     )
 
 if (WIN32)
-    target_link_libraries(VulkanTest dbghelp)
+    target_link_libraries(VulkanTest dbghelp legacy_stdio_definitions)
 endif (WIN32)
+
+# annoying, reevaluate later
+# if(MSVC)
+#     target_compile_options(VulkanTest PRIVATE /W4 /WX /Wall)
+# else()
+#     target_compile_options(VulkanTest PRIVATE -Wall -Wextra -Wpedantic -Werror)
+# endif()
+
 install(TARGETS VulkanTest)
-
-# use this to print targets wherever you paste it
-function(print_all_targets DIR)
-    get_property(TGTS DIRECTORY "${DIR}" PROPERTY BUILDSYSTEM_TARGETS)
-    foreach(TGT IN LISTS TGTS)
-        message(STATUS "Target: ${TGT}")
-        # TODO: Do something about it
-    endforeach()
-
-    get_property(SUBDIRS DIRECTORY "${DIR}" PROPERTY SUBDIRECTORIES)
-    foreach(SUBDIR IN LISTS SUBDIRS)
-        print_all_targets("${SUBDIR}")
-    endforeach()
-endfunction()
-
-message("ALL TARGETS BELOW")
+ 
+# # use this to print targets wherever you paste it
+# function(print_all_targets DIR)
+#     get_property(TGTS DIRECTORY "${DIR}" PROPERTY BUILDSYSTEM_TARGETS)
+#     foreach(TGT IN LISTS TGTS)
+#         message(STATUS "Target: ${TGT}")
+#         # TODO: Do something about it
+#     endforeach()
+# 
+#     get_property(SUBDIRS DIRECTORY "${DIR}" PROPERTY SUBDIRECTORIES)
+#     foreach(SUBDIR IN LISTS SUBDIRS)
+#         print_all_targets("${SUBDIR}")
+#     endforeach()
+# endfunction()
+# 
+# message("ALL TARGETS BELOW")
 # print_all_targets(.)
