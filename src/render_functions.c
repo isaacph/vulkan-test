@@ -9,13 +9,12 @@ static void check(void* res) {
 }
 
 void init_loader_functions(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr) {
-    PFN_vkGetInstanceProcAddr load = vkGetInstanceProcAddr;
     vkGetInstanceProcAddr = fp_vkGetInstanceProcAddr;
+    PFN_vkGetInstanceProcAddr load = vkGetInstanceProcAddr;
     check(vkEnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion)load(VK_NULL_HANDLE, "vkEnumerateInstanceVersion"));
     check(vkEnumerateInstanceExtensionProperties = (PFN_vkEnumerateInstanceExtensionProperties)load(VK_NULL_HANDLE, "vkEnumerateInstanceExtensionProperties"));
     check(vkEnumerateInstanceLayerProperties = (PFN_vkEnumerateInstanceLayerProperties)load(VK_NULL_HANDLE, "vkEnumerateInstanceLayerProperties"));
     check(vkCreateInstance = (PFN_vkCreateInstance)load(VK_NULL_HANDLE, "vkCreateInstance"));
-    check(vkDestroyInstance = (PFN_vkDestroyInstance)load(VK_NULL_HANDLE, "vkDestroyInstance"));
 }
 
 void init_instance_functions(VkInstance instance) {
@@ -26,9 +25,10 @@ void init_instance_functions(VkInstance instance) {
     check(vkGetPhysicalDeviceFormatProperties2 = (PFN_vkGetPhysicalDeviceFormatProperties2)load(instance, "vkGetPhysicalDeviceFormatProperties2"));
     check(vkGetPhysicalDeviceQueueFamilyProperties = (PFN_vkGetPhysicalDeviceQueueFamilyProperties)load(instance, "vkGetPhysicalDeviceQueueFamilyProperties"));
     check(vkCreateDevice = (PFN_vkCreateDevice)load(instance, "vkCreateDevice"));
-    check(vkDestroyDevice = (PFN_vkDestroyDevice)load(VK_NULL_HANDLE, "vkDestroyDevice"));
     check(vkGetDeviceProcAddr = (PFN_vkGetDeviceProcAddr)load(instance, "vkGetDeviceProcAddr"));
     check(vkGetPhysicalDeviceProperties = (PFN_vkGetPhysicalDeviceProperties)load(instance, "vkGetPhysicalDeviceProperties"));
+    check(vkDestroyInstance = (PFN_vkDestroyInstance)load(instance, "vkDestroyInstance"));
+    check(vkDestroyDevice = (PFN_vkDestroyDevice)load(instance, "vkDestroyDevice"));
 #if defined(_WIN32)
     check(vkCreateWin32SurfaceKHR = (PFN_vkCreateWin32SurfaceKHR)load(instance, "vkCreateWin32SurfaceKHR"));
 #endif
@@ -36,6 +36,6 @@ void init_instance_functions(VkInstance instance) {
 
 void init_device_functions(VkDevice device) {
     PFN_vkGetDeviceProcAddr load = vkGetDeviceProcAddr;
-    check(vkCreateDevice = (PFN_vkCreateDevice)load(device, "vkCreateDevice"));
+    check(vkGetDeviceQueue = (PFN_vkGetDeviceQueue)load(device, "vkGetDeviceQueue"));
 }
 

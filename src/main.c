@@ -1,6 +1,13 @@
+#include "util.h"
+#ifndef UNICODE
+#define UNICODE
+#endif
+#ifndef _UNICODE
+#define _UNICODE
+#endif
 #include <windows.h>
 #include <stdio.h>
-//#include "render.h"
+#include "render.h"
 #include "backtrace.h"
 #include "ccomexample.h"
 
@@ -58,13 +65,15 @@ int main() {
 
     if (hwnd == NULL)
     {
+        DWORD lastError = GetLastError();
+        printf("last error: %lu\n", lastError);
         exception_msg("Invalid window handle");
         return 0;
     }
 
     ShowWindow(hwnd, SW_SHOW);
 
-    //struct RenderContext renderContext = rc_init_win32(hInstance, hwnd);
+    struct RenderContext renderContext = rc_init_win32(hInstance, hwnd);
 
     // Run the message loop.
 
@@ -75,7 +84,7 @@ int main() {
         DispatchMessage(&msg);
     }
 
-    //rc_cleanup(&renderContext);
+    rc_cleanup(&renderContext);
     CoUninitialize();
     return 0;
 }

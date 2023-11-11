@@ -5,8 +5,8 @@ project(VulkanTest
     DESCRIPTION "Learning vulkan and MSVC toolchain"
     LANGUAGES C)
 
-add_compile_options(-fsanitize=address)
-add_link_options(-fsanitize=address)
+# add_compile_options(-fsanitize=address)
+# add_link_options(-fsanitize=address)
 # # use Ninja generator with MSVC with this to get intellisense on windows
 # # outside of Visual Studio
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -17,25 +17,9 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 
 
 # Settings for configuring projects generated for an IDE
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-include_directories($ENV{UniversalCRTSdkDir}/Include/ucrt)
-include_directories($ENV{UniversalCRTSdkDir}/Include/10.0.10056.0/ucrt)
-
-set(as_subproject
-    Vulkan::ValidationLayers
-    Vulkan::Headers
-    Vulkan::Loader
-#    volk::volk
-    Vulkan::LayerSettings
-    Vulkan::UtilityHeaders
-    SPIRV-Headers::SPIRV-Headers
-    SPIRV-Tools::SPIRV-Tools
-    )
-
-foreach(proj ${as_subproject})
-    set(CMAKE_DISABLE_FIND_PACKAGE_${proj} TRUE)
-    message(CMAKE_DISABLE_FIND_PACKAGE_${proj} ${CMAKE_DISABLE_FIND_PACKAGE_${proj}})
-endforeach()
+# set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+# include_directories($ENV{UniversalCRTSdkDir}/Include/ucrt)
+# include_directories($ENV{UniversalCRTSdkDir}/Include/10.0.10056.0/ucrt)
 
 # # this doesn't work on rerun
 # # disable find package for non-subprojects
@@ -45,17 +29,18 @@ endforeach()
 #     endif()
 # endmacro()
 
-set(VOLK_PULL_IN_VULKAN OFF)
-
-set(CMAKE_PREFIX_PATH "/prefix")
-add_subdirectory(subprojects/Vulkan-ValidationLayers)
-add_subdirectory(subprojects/Vulkan-Headers)
-add_subdirectory(subprojects/Vulkan-Loader)
-add_subdirectory(subprojects/Vulkan-Utility-Libraries)
-add_subdirectory(subprojects/SPIRV-Headers)
-add_subdirectory(subprojects/SPIRV-Tools)
+# set(CMAKE_PREFIX_PATH "/prefix")
+# add_subdirectory(subprojects/Vulkan-ValidationLayers)
+# add_subdirectory(subprojects/Vulkan-Headers)
+# add_subdirectory(subprojects/Vulkan-Loader)
+# add_subdirectory(subprojects/Vulkan-Utility-Libraries)
+# add_subdirectory(subprojects/SPIRV-Headers)
+# add_subdirectory(subprojects/SPIRV-Tools)
 # set(VOLK_INSTALL ON)
 # add_subdirectory(subprojects/volk)
+
+find_package(VulkanHeaders)
+# find_package(VulkanLoader)
 
 # include(CMakeFindDependencyMacro)
 
@@ -91,7 +76,7 @@ add_executable(VulkanTest
     src/render.c
     src/render_util.c
     src/backtrace.c
-    src/segfault.c
+    # src/segfault.c
     src/render_functions.c
     # src/ccomexample.c
     )
@@ -99,13 +84,15 @@ add_executable(VulkanTest
 # target_include_directories(VulkanTest PRIVATE src)
 
 target_include_directories(VulkanTest PRIVATE src)
+# target_include_directories(VulkanTest PRIVATE Vulkan::Loader)
+# target_include_directories(VulkanTest PRIVATE Vulkan::Headers)
 # # target_include_directories(VulkanTest PRIVATE "subprojects/Vulkan-Headers/include")
 # # target_include_directories(VulkanTest PRIVATE "subprojects/volk")
 
 target_link_libraries(VulkanTest
-    Vulkan::Loader
+    #     Vulkan::Loader
     Vulkan::Headers
-    # vvl # should be Vulkan::Validationlayers :( actually can't link this lol
+# vvl # should be Vulkan::Validationlayers :( actually can't link this lol
 #    volk::volk
     )
 

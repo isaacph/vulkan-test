@@ -6,6 +6,13 @@
 #include <vulkan/vulkan_core.h>
 
 #if defined(_WIN32)
+// some useful stuff for win32
+#ifndef UNICODE
+#define UNICODE
+#endif
+#ifndef _UNICODE
+#define _UNICODE
+#endif
 #include <windows.h>
 
 // // a minimal windows include
@@ -36,34 +43,36 @@ void init_device_functions(VkDevice device);
 // via render_functions.c
 #ifdef RC_FUNCTION_DECLARATION
 #define EXTERN extern
+#define INIT = NULL
 #else
 #define EXTERN
+#define INIT
 #endif
 
 // loader functions
-EXTERN PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
-EXTERN PFN_vkEnumerateInstanceVersion vkEnumerateInstanceVersion;
-EXTERN PFN_vkEnumerateInstanceExtensionProperties vkEnumerateInstanceExtensionProperties;
-EXTERN PFN_vkEnumerateInstanceLayerProperties vkEnumerateInstanceLayerProperties;
-EXTERN PFN_vkCreateInstance vkCreateInstance;
-EXTERN PFN_vkDestroyInstance vkDestroyInstance;
+EXTERN PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr INIT;
+EXTERN PFN_vkEnumerateInstanceVersion vkEnumerateInstanceVersion INIT;
+EXTERN PFN_vkEnumerateInstanceExtensionProperties vkEnumerateInstanceExtensionProperties INIT;
+EXTERN PFN_vkEnumerateInstanceLayerProperties vkEnumerateInstanceLayerProperties INIT;
+EXTERN PFN_vkCreateInstance vkCreateInstance INIT;
 
 // instance functions
-EXTERN PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
-EXTERN PFN_vkEnumerateDeviceExtensionProperties vkEnumerateDeviceExtensionProperties;
-EXTERN PFN_vkGetPhysicalDeviceFeatures2 vkGetPhysicalDeviceFeatures2;
-EXTERN PFN_vkGetPhysicalDeviceFormatProperties2 vkGetPhysicalDeviceFormatProperties2;
-EXTERN PFN_vkGetPhysicalDeviceQueueFamilyProperties vkGetPhysicalDeviceQueueFamilyProperties;
-EXTERN PFN_vkCreateDevice vkCreateDevice;
-EXTERN PFN_vkDestroyDevice vkDestroyDevice;
-EXTERN PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr;
-EXTERN PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties;
+EXTERN PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices INIT;
+EXTERN PFN_vkEnumerateDeviceExtensionProperties vkEnumerateDeviceExtensionProperties INIT;
+EXTERN PFN_vkGetPhysicalDeviceFeatures2 vkGetPhysicalDeviceFeatures2 INIT;
+EXTERN PFN_vkGetPhysicalDeviceFormatProperties2 vkGetPhysicalDeviceFormatProperties2 INIT;
+EXTERN PFN_vkGetPhysicalDeviceQueueFamilyProperties vkGetPhysicalDeviceQueueFamilyProperties INIT;
+EXTERN PFN_vkCreateDevice vkCreateDevice INIT;
+EXTERN PFN_vkDestroyInstance vkDestroyInstance INIT;
+EXTERN PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr INIT;
+EXTERN PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties INIT;
+EXTERN PFN_vkDestroyDevice vkDestroyDevice INIT;
 #if defined(_WIN32)
-EXTERN PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
+EXTERN PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR INIT;
 #endif
 
 // device functions
-EXTERN PFN_vkGetDeviceQueue vkGetDeviceQueue;
+EXTERN PFN_vkGetDeviceQueue vkGetDeviceQueue INIT;
 
 #undef EXTERN
 

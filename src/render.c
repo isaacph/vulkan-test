@@ -1,4 +1,5 @@
 #include "app.h"
+#include "util.h"
 #include "render.h"
 #include "render_util.h"
 #include <stdbool.h>
@@ -15,7 +16,7 @@ const size_t ENABLE_EXTENSIONS_COUNT = 2;
 const char* const ENABLE_LAYERS[] = {
     "VK_LAYER_KHRONOS_validation",
 };
-const size_t ENABLE_LAYERS_COUNT = 1;
+const size_t ENABLE_LAYERS_COUNT = 0;
 
 const char* const ENABLE_DEVICE_EXTENSIONS[] = {
     "Not an extension",
@@ -72,7 +73,7 @@ struct RenderContext rc_init(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr)
     VkPhysicalDevice chosenPhysicalDevice = NULL;
     VkDevice device = NULL;
     VkQueue queue = NULL;
-    VkSurfaceKHR surface = NULL;
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
 
     // initialize loader functions
     init_loader_functions(fp_vkGetInstanceProcAddr);
@@ -314,7 +315,7 @@ struct RenderContext rc_init(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr)
             VkDeviceQueueCreateInfo queueCreateInfo = {
                 .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
                 .pNext = NULL,
-                .flags = NULL,
+                .flags = 0,
                 .queueFamilyIndex = queueFamilyIndex,
                 .queueCount = 1,
                 .pQueuePriorities = &queuePriority,
@@ -333,10 +334,12 @@ struct RenderContext rc_init(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr)
             };
             check(vkCreateDevice(
                 chosenPhysicalDevice, &createInfo, allocationCallbacks, &device));
+            printf("Device initialized\n");
         }
 
         // init all of the vk* functions that are per-device
         init_device_functions(device);
+        printf("Device functions initialized\n");
 
         // get queue
         vkGetDeviceQueue(device, queueFamilyIndex, 0, &queue);
@@ -348,7 +351,7 @@ struct RenderContext rc_init(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr)
         .device = device,
         .queue = queue,
         .allocationCallbacks = allocationCallbacks,
-        .surface = NULL, // defined by platform-specific code
+        .surface = VK_NULL_HANDLE, // defined by platform-specific code
     };
 
     free(extensions);
@@ -373,8 +376,10 @@ struct RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
         // https://github.com/charles-lunarg/vk-bootstrap/blob/main/src/VkBootstrap.cpp#L61
         // https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya
         HMODULE library;
-        library = LoadLibraryA(TEXT("vulkan-1.dll"));
+        library = LoadLibraryW(L"vulkan-1.dll");
         if (library == NULL) {
+            DWORD error = GetLastError();
+            printf("Windows error: %lu\n", error);
             exception_msg("vulkan-1.dll was not found");
         }
 
@@ -382,6 +387,11 @@ struct RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
         fp_vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(library, "vkGetInstanceProcAddr");
         if (fp_vkGetInstanceProcAddr == NULL) exception();
         printf("Found loader func: %p\n", fp_vkGetInstanceProcAddr);
+
+        // sanity check
+        if (fp_vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkEnumerateInstanceVersion") == NULL) {
+            exception_msg("Invalid vulkan-1.dll");
+        }
     }
 
     // call regular platform-agnostic init
@@ -398,6 +408,7 @@ struct RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
         };
         check(vkCreateWin32SurfaceKHR(context.instance, &createInfo, context.allocationCallbacks, &context.surface));
     }
+    printf("Created win32 surface\n");
 
     return context;
 }
