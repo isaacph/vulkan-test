@@ -5,6 +5,7 @@ Trying a Vulkan test with msys2's mingw-w64 target on Windows, using meson as a 
 ### Backlog
 
 * Consider modifying Volk to generate strings for error codes
+* Maybe use protected memory and swapchain? Right now I have no idea what the point really is and I don't know if I should care and I can't find any posts online talking about it besides the documentation that just describes what it does, not why
 
 ### Weird issues
 

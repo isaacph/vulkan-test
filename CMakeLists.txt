@@ -90,7 +90,7 @@ target_include_directories(VulkanTest PRIVATE src)
 # # target_include_directories(VulkanTest PRIVATE "subprojects/volk")
 
 target_link_libraries(VulkanTest
-    Vulkan::Loader
+    #    Vulkan::Loader
     Vulkan::Headers
 # vvl # should be Vulkan::Validationlayers :( actually can't link this lol
 #    volk::volk

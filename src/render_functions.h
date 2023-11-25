@@ -66,14 +66,20 @@ EXTERN PFN_vkCreateDevice vkCreateDevice INIT;
 EXTERN PFN_vkDestroyInstance vkDestroyInstance INIT;
 EXTERN PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr INIT;
 EXTERN PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties INIT;
+EXTERN PFN_vkGetPhysicalDeviceSurfaceSupportKHR vkGetPhysicalDeviceSurfaceSupportKHR INIT;
+EXTERN PFN_vkGetPhysicalDeviceSurfaceCapabilities2KHR vkGetPhysicalDeviceSurfaceCapabilities2KHR INIT;
 EXTERN PFN_vkDestroyDevice vkDestroyDevice INIT;
 EXTERN PFN_vkDestroySurfaceKHR vkDestroySurfaceKHR INIT;
+EXTERN PFN_vkGetPhysicalDeviceSurfaceFormatsKHR vkGetPhysicalDeviceSurfaceFormatsKHR INIT;
 #if defined(_WIN32)
 EXTERN PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR INIT;
+EXTERN PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR vkGetPhysicalDeviceWin32PresentationSupportKHR INIT;
 #endif
 
 // device functions
 EXTERN PFN_vkGetDeviceQueue vkGetDeviceQueue INIT;
+EXTERN PFN_vkCreateSwapchainKHR vkCreateSwapchainKHR INIT;
+EXTERN PFN_vkDestroySwapchainKHR vkDestroySwapchainKHR INIT;
 
 #undef EXTERN
 

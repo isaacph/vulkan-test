@@ -5,12 +5,14 @@
 
 struct RenderContext {
     VkInstance instance;
+    VkPhysicalDevice physicalDevice;
     VkDevice device;
     VkQueue queue;
+    uint32_t queueFamilyIndex;
     VkSurfaceKHR surface;
     VkAllocationCallbacks* allocationCallbacks;
     VkSwapchainKHR swapchain;
-    VkFormat swapchainFormat;
+    VkSurfaceFormatKHR surfaceFormat;
 };
 
 struct RenderContext rc_init(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr);

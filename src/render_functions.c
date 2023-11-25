@@ -30,13 +30,19 @@ void init_instance_functions(VkInstance instance) {
     check(vkDestroyInstance = (PFN_vkDestroyInstance)load(instance, "vkDestroyInstance"));
     check(vkDestroyDevice = (PFN_vkDestroyDevice)load(instance, "vkDestroyDevice"));
     check(vkDestroySurfaceKHR = (PFN_vkDestroySurfaceKHR)load(instance, "vkDestroySurfaceKHR"));
+    check(vkGetPhysicalDeviceSurfaceSupportKHR = (PFN_vkGetPhysicalDeviceSurfaceSupportKHR)load(instance, "vkGetPhysicalDeviceSurfaceSupportKHR"));
+    check(vkGetPhysicalDeviceSurfaceCapabilities2KHR = (PFN_vkGetPhysicalDeviceSurfaceCapabilities2KHR)load(instance, "vkGetPhysicalDeviceSurfaceCapabilities2KHR"));
+    check(vkGetPhysicalDeviceSurfaceFormatsKHR = (PFN_vkGetPhysicalDeviceSurfaceFormatsKHR)load(instance, "vkGetPhysicalDeviceSurfaceFormatsKHR"));
 #if defined(_WIN32)
     check(vkCreateWin32SurfaceKHR = (PFN_vkCreateWin32SurfaceKHR)load(instance, "vkCreateWin32SurfaceKHR"));
+    check(vkGetPhysicalDeviceWin32PresentationSupportKHR = (PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)load(instance, "vkGetPhysicalDeviceWin32PresentationSupportKHR"));
 #endif
 }
 
 void init_device_functions(VkDevice device) {
     PFN_vkGetDeviceProcAddr load = vkGetDeviceProcAddr;
     check(vkGetDeviceQueue = (PFN_vkGetDeviceQueue)load(device, "vkGetDeviceQueue"));
+    check(vkCreateSwapchainKHR = (PFN_vkCreateSwapchainKHR)load(device, "vkCreateSwapchainKHR"));
+    check(vkDestroySwapchainKHR = (PFN_vkDestroySwapchainKHR)load(device, "vkDestroySwapchainKHR"));
 }
 
