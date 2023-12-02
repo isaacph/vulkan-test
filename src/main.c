@@ -19,6 +19,7 @@
 //
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lparam);
+struct RenderContext renderContext;
 
 // int WinMain(
 //         HINSTANCE hInstance,
@@ -74,7 +75,7 @@ int main() {
 
     ShowWindow(hwnd, SW_SHOW);
 
-    struct RenderContext renderContext = rc_init_win32(hInstance, hwnd);
+    renderContext = rc_init_win32(hInstance, hwnd);
 
     // Run the message loop.
 
@@ -89,6 +90,7 @@ int main() {
     CoUninitialize();
     return 0;
 }
+int x= 0;
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -104,18 +106,23 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         //return CCOMExample();
         return 0;
     case WM_PAINT:
-        {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hwnd, &ps);
+        // {
+        //     PAINTSTRUCT ps;
+        //     HDC hdc = BeginPaint(hwnd, &ps);
 
-            // All painting occurs here, between BeginPaint and EndPaint.
+        //     // All painting occurs here, between BeginPaint and EndPaint.
 
-            FillRect(hdc, &ps.rcPaint, (HBRUSH) (COLOR_WINDOW+1));
+        //     FillRect(hdc, &ps.rcPaint, (HBRUSH) (COLOR_WINDOW+1));
 
-            EndPaint(hwnd, &ps);
-        }
+        //     EndPaint(hwnd, &ps);
+        // }
+        rc_draw(&renderContext);
         return 0;
-
+    case WM_SIZE:
+        uint32_t width = LOWORD(lParam);
+        uint32_t height = HIWORD(lParam);
+        rc_size_change(&renderContext, width, height);
+        return 0;
     }
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }

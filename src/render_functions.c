@@ -44,5 +44,29 @@ void init_device_functions(VkDevice device) {
     check(vkGetDeviceQueue = (PFN_vkGetDeviceQueue)load(device, "vkGetDeviceQueue"));
     check(vkCreateSwapchainKHR = (PFN_vkCreateSwapchainKHR)load(device, "vkCreateSwapchainKHR"));
     check(vkDestroySwapchainKHR = (PFN_vkDestroySwapchainKHR)load(device, "vkDestroySwapchainKHR"));
+    check(vkCreateCommandPool = (PFN_vkCreateCommandPool)load(device, "vkCreateCommandPool"));
+    check(vkDestroyCommandPool = (PFN_vkDestroyCommandPool)load(device, "vkDestroyCommandPool"));
+    check(vkAllocateCommandBuffers = (PFN_vkAllocateCommandBuffers)load(device, "vkAllocateCommandBuffers"));
+    check(vkCreateRenderPass = (PFN_vkCreateRenderPass)load(device, "vkCreateRenderPass"));
+    check(vkDestroyRenderPass = (PFN_vkDestroyRenderPass)load(device, "vkDestroyRenderPass"));
+    check(vkCreateFramebuffer = (PFN_vkCreateFramebuffer)load(device, "vkCreateFramebuffer"));
+    check(vkDestroyFramebuffer = (PFN_vkDestroyFramebuffer)load(device, "vkDestroyFramebuffer"));
+    check(vkCreateImageView = (PFN_vkCreateImageView)load(device, "vkCreateImageView"));
+    check(vkDestroyImageView = (PFN_vkDestroyImageView)load(device, "vkDestroyImageView"));
+    check(vkGetSwapchainImagesKHR = (PFN_vkGetSwapchainImagesKHR)load(device, "vkGetSwapchainImagesKHR"));
+    check(vkCreateFence = (PFN_vkCreateFence)load(device, "vkCreateFence"));
+    check(vkCreateSemaphore = (PFN_vkCreateSemaphore)load(device, "vkCreateSemaphore"));
+    check(vkDestroyFence = (PFN_vkDestroyFence)load(device, "vkDestroyFence"));
+    check(vkDestroySemaphore = (PFN_vkDestroySemaphore)load(device, "vkDestroySemaphore"));
+    check(vkWaitForFences = (PFN_vkWaitForFences)load(device, "vkWaitForFences"));
+    check(vkResetFences = (PFN_vkResetFences)load(device, "vkResetFences"));
+    check(vkAcquireNextImageKHR = (PFN_vkAcquireNextImageKHR)load(device, "vkAcquireNextImageKHR"));
+    check(vkResetCommandBuffer = (PFN_vkResetCommandBuffer)load(device, "vkResetCommandBuffer"));
+    check(vkBeginCommandBuffer = (PFN_vkBeginCommandBuffer)load(device, "vkBeginCommandBuffer"));
+    check(vkCmdBeginRenderPass = (PFN_vkCmdBeginRenderPass)load(device, "vkCmdBeginRenderPass"));
+    check(vkCmdEndRenderPass = (PFN_vkCmdEndRenderPass)load(device, "vkCmdEndRenderPass"));
+    check(vkEndCommandBuffer = (PFN_vkEndCommandBuffer)load(device, "vkEndCommandBuffer"));
+    check(vkQueueSubmit = (PFN_vkQueueSubmit)load(device, "vkQueueSubmit"));
+    check(vkQueuePresentKHR = (PFN_vkQueuePresentKHR)load(device, "vkQueuePresentKHR"));
 }
 

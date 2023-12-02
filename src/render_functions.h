@@ -80,6 +80,30 @@ EXTERN PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR vkGetPhysicalDeviceWin
 EXTERN PFN_vkGetDeviceQueue vkGetDeviceQueue INIT;
 EXTERN PFN_vkCreateSwapchainKHR vkCreateSwapchainKHR INIT;
 EXTERN PFN_vkDestroySwapchainKHR vkDestroySwapchainKHR INIT;
+EXTERN PFN_vkCreateCommandPool vkCreateCommandPool INIT;
+EXTERN PFN_vkDestroyCommandPool vkDestroyCommandPool INIT;
+EXTERN PFN_vkAllocateCommandBuffers vkAllocateCommandBuffers INIT;
+EXTERN PFN_vkCreateRenderPass vkCreateRenderPass INIT;
+EXTERN PFN_vkDestroyRenderPass vkDestroyRenderPass INIT;
+EXTERN PFN_vkCreateFramebuffer vkCreateFramebuffer INIT;
+EXTERN PFN_vkDestroyFramebuffer vkDestroyFramebuffer INIT;
+EXTERN PFN_vkCreateImageView vkCreateImageView INIT;
+EXTERN PFN_vkDestroyImageView vkDestroyImageView INIT;
+EXTERN PFN_vkGetSwapchainImagesKHR vkGetSwapchainImagesKHR INIT;
+EXTERN PFN_vkCreateFence vkCreateFence INIT;
+EXTERN PFN_vkCreateSemaphore vkCreateSemaphore INIT;
+EXTERN PFN_vkDestroyFence vkDestroyFence INIT;
+EXTERN PFN_vkDestroySemaphore vkDestroySemaphore INIT;
+EXTERN PFN_vkWaitForFences vkWaitForFences INIT;
+EXTERN PFN_vkResetFences vkResetFences INIT;
+EXTERN PFN_vkAcquireNextImageKHR vkAcquireNextImageKHR INIT;
+EXTERN PFN_vkResetCommandBuffer vkResetCommandBuffer INIT;
+EXTERN PFN_vkBeginCommandBuffer vkBeginCommandBuffer INIT;
+EXTERN PFN_vkCmdBeginRenderPass vkCmdBeginRenderPass INIT;
+EXTERN PFN_vkCmdEndRenderPass vkCmdEndRenderPass INIT;
+EXTERN PFN_vkEndCommandBuffer vkEndCommandBuffer INIT;
+EXTERN PFN_vkQueueSubmit vkQueueSubmit INIT;
+EXTERN PFN_vkQueuePresentKHR vkQueuePresentKHR INIT;
 
 #undef EXTERN
 

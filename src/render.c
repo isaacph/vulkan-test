@@ -4,6 +4,7 @@
 #include "render_util.h"
 #include <stdbool.h>
 #include <vulkan/vulkan_core.h>
+#include <math.h>
 
 #define RENDER_MAX_ERR_MSG_LENGTH 128
 
@@ -61,9 +62,6 @@ void validateFormatProperties(VkFormatProperties2* properties) {
 }
 
 const int REQUIRE_PHYSICAL_DEVICE_QUEUE_FAMILY_FLAG = VK_QUEUE_GRAPHICS_BIT;
-
-bool validateDeviceSurfaceCapabilities(VkPhysicalDevice device, VkSurfaceKHR surface) {
-}
 
 // todo: add ability to enable features, fill out QueueCreateInfo
 //https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap5.html#devsandqueues-device-creation
@@ -190,6 +188,16 @@ struct RenderContext rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstance
         .allocationCallbacks = allocationCallbacks,
         .swapchain = VK_NULL_HANDLE,
         .surfaceFormat = {0},
+        .swapchainImageViews = {0},
+        .swapchainExtent = {0},
+        .commandPool = VK_NULL_HANDLE,
+        .commandBuffer = VK_NULL_HANDLE,
+        .renderPass = VK_NULL_HANDLE,
+        .framebuffers = {0},
+        .renderFence = VK_NULL_HANDLE,
+        .presentSemaphore = VK_NULL_HANDLE,
+        .renderSemaphore = VK_NULL_HANDLE,
+        .frameNumber = 0,
     };
 
     free(extensions);
@@ -219,6 +227,8 @@ void rc_init_device(struct RenderContext* renderContext) {
     VkPhysicalDevice chosenPhysicalDevice = NULL;
     VkDevice device = NULL;
     VkQueue queue = NULL;
+    VkCommandPool commandPool = VK_NULL_HANDLE;
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
 
     // we're going to need to enumerate layers again
     uint32_t layersCount = 0;
@@ -247,9 +257,9 @@ void rc_init_device(struct RenderContext* renderContext) {
         vkGetPhysicalDeviceProperties(device, &properties);
         printf("Checking graphics card: %s\n", properties.deviceName);
 
-        if (!validateDeviceSurfaceCapabilities(device, surface)) {
-            printf("Device/surface pair does not have sufficient capabilities");
-        }
+        // if (!validateDeviceSurfaceCapabilities(device, surface)) {
+        //     printf("Device/surface pair does not have sufficient capabilities");
+        // }
 
         // check for queue family flag support
         // set first supported queue family to foundQFIndex
@@ -430,10 +440,30 @@ void rc_init_device(struct RenderContext* renderContext) {
     // get queue
     vkGetDeviceQueue(device, queueFamilyIndex, 0, &queue);
 
+    // init command pool
+    VkCommandPoolCreateInfo commandPoolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .queueFamilyIndex = renderContext->queueFamilyIndex,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .pNext = NULL,
+    };
+    check(vkCreateCommandPool(device, &commandPoolCreateInfo, renderContext->allocationCallbacks, &commandPool));
+
+    VkCommandBufferAllocateInfo cmdAllocInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext = NULL,
+        .commandPool = commandPool,
+        .commandBufferCount = 1,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+    };
+    check(vkAllocateCommandBuffers(device, &cmdAllocInfo, &commandBuffer));
+
     renderContext->physicalDevice = chosenPhysicalDevice;
     renderContext->device = device;
     renderContext->queue = queue;
     renderContext->queueFamilyIndex = queueFamilyIndex;
+    renderContext->commandPool = commandPool;
+    renderContext->commandBuffer = commandBuffer;
 
     free(layers);
 }
@@ -485,9 +515,6 @@ void rc_init_swapchain(struct RenderContext* renderContext, uint32_t width, uint
     if (renderContext->device == VK_NULL_HANDLE) {
         exception_msg("Must create device before creating swapchain\n");
     }
-    // if (renderContext->swapchain != VK_NULL_HANDLE) {
-    //     exception_msg("Already created swapchain\n");
-    // }
     if (renderContext->surfaceFormat.format == VK_FORMAT_UNDEFINED) {
         exception_msg("Must decide surface format before creating swapchain\n");
     }
@@ -548,8 +575,8 @@ void rc_init_swapchain(struct RenderContext* renderContext, uint32_t width, uint
         check(vkGetPhysicalDeviceSurfaceCapabilities2KHR(physicalDevice, &info, &capabilities));
         // validate capabilities in capabilities.surfaceCapabilities
         // https://github.com/KhronosGroup/Vulkan-Samples/tree/main/samples/performance/swapchain_images
-        if (3 < capabilities.surfaceCapabilities.minImageCount ||
-            3 > capabilities.surfaceCapabilities.maxImageCount) {
+        if (RC_SWAPCHAIN_LENGTH < capabilities.surfaceCapabilities.minImageCount ||
+            RC_SWAPCHAIN_LENGTH > capabilities.surfaceCapabilities.maxImageCount) {
             exception_msg("Device does not support 3 swapchain images\n");
         }
 
@@ -581,13 +608,14 @@ void rc_init_swapchain(struct RenderContext* renderContext, uint32_t width, uint
         }
     }
     
+    VkSwapchainKHR oldSwapchain = swapchain;
     VkSwapchainCreateInfoKHR createInfo = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .pNext = NULL,
         .flags = 0,
         .surface = surface,
         // https://github.com/KhronosGroup/Vulkan-Samples/tree/main/samples/performance/swapchain_images
-        .minImageCount = 3, // triple buffering is just better 
+        .minImageCount = RC_SWAPCHAIN_LENGTH, // triple buffering is just better 
         .imageFormat = surfaceFormat.format,
         .imageColorSpace = surfaceFormat.colorSpace,
         .imageExtent = extent,
@@ -601,27 +629,222 @@ void rc_init_swapchain(struct RenderContext* renderContext, uint32_t width, uint
         .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR, // not sure if this will work but oh well
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, // no transparent windows... FOR NOW
         .presentMode = VK_PRESENT_MODE_FIFO_KHR,
-        .oldSwapchain = swapchain,
+        .oldSwapchain = oldSwapchain,
     };
     vkCreateSwapchainKHR(device, &createInfo, renderContext->allocationCallbacks, &swapchain);
+    // clean up old swapchain
+    if (oldSwapchain != VK_NULL_HANDLE) {
+        vkDestroySwapchainKHR(device, oldSwapchain, renderContext->allocationCallbacks);
+    }
+
+    // create images for swapchain
+    {
+        uint32_t imageCount = 0;
+        check(vkGetSwapchainImagesKHR(device, swapchain, &imageCount, NULL));
+        if (imageCount != RC_SWAPCHAIN_LENGTH) {
+            char msg[300] = {0};
+            snprintf(msg, 300, "Created swapchain has incorrect number of images: %u (should be %u)", imageCount, RC_SWAPCHAIN_LENGTH);
+            exception_msg(msg);
+        }
+        check(vkGetSwapchainImagesKHR(device, swapchain, &imageCount, renderContext->swapchainImages));
+    }
+
+    // create image views for swapchain
+    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+        if (renderContext->swapchainImageViews[i] != VK_NULL_HANDLE) {
+            vkDestroyImageView(device, renderContext->swapchainImageViews[i], renderContext->allocationCallbacks);
+        }
+        VkImageViewCreateInfo imageViewCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .image = renderContext->swapchainImages[i],
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = renderContext->surfaceFormat.format,
+            .components = (VkComponentMapping) {
+                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+            },
+            .subresourceRange = (VkImageSubresourceRange) {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        };
+        check(vkCreateImageView(
+            device,
+            &imageViewCreateInfo,
+            renderContext->allocationCallbacks,
+            &renderContext->swapchainImageViews[i]));
+    }
 
     renderContext->swapchain = swapchain;
+    renderContext->swapchainExtent = extent;
+}
+
+void rc_init_render_pass(struct RenderContext *renderContext) {
+    if (renderContext->surface == VK_NULL_HANDLE) {
+        exception_msg("Must create surface before creating render pass\n");
+    }
+    if (renderContext->device == VK_NULL_HANDLE) {
+        exception_msg("Must create device before creating render pass\n");
+    }
+    if (renderContext->surfaceFormat.format == VK_FORMAT_UNDEFINED) {
+        exception_msg("Must decide surface format before creating render pass\n");
+    }
+
+    VkFormat format = renderContext->surfaceFormat.format;
+    VkDevice device = renderContext->device;
+    VkRenderPass renderPass = VK_NULL_HANDLE;
+
+    VkAttachmentDescription colorAttachment = {
+        .format = format,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    };
+    VkAttachmentReference colorAttachmentRef = {
+        .attachment = 0, // this indexes into the pAttachments array in renderPassInfo
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    };
+    VkSubpassDescription subpass = {
+        .flags = 0,
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .inputAttachmentCount = 0,
+        .pInputAttachments = NULL,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachmentRef,
+        .pResolveAttachments = NULL,
+        .pDepthStencilAttachment = NULL,
+        .preserveAttachmentCount = 0,
+        .pPreserveAttachments = NULL,
+    };
+    VkRenderPassCreateInfo renderPassInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .attachmentCount = 1,
+        .pAttachments = &colorAttachment,
+        .subpassCount = 1,
+        .pSubpasses = &subpass,
+        .dependencyCount = 0,
+        .pDependencies = NULL,
+    };
+    check(vkCreateRenderPass(device, &renderPassInfo, renderContext->allocationCallbacks, &renderPass));
+
+    renderContext->renderPass = renderPass;
+}
+
+void rc_init_framebuffers(struct RenderContext *renderContext) {
+    if (renderContext->device == VK_NULL_HANDLE) {
+        exception_msg("Must create device before creating framebuffers\n");
+    }
+    if (renderContext->renderPass == VK_NULL_HANDLE) {
+        exception_msg("Must create renderpass before creating framebuffers\n");
+    }
+
+    VkDevice device = renderContext->device;
+    VkRenderPass renderPass = renderContext->renderPass;
+    VkFramebuffer framebuffers[RC_SWAPCHAIN_LENGTH] = { 0 };
+
+    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+        framebuffers[i] = renderContext->framebuffers[i];
+    }
+
+    VkFramebufferCreateInfo framebufferCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .renderPass = renderPass,
+        .attachmentCount = 1,
+        .pAttachments = NULL,
+        //.pAttachments = renderContext->swapchainImageViews, // must be set per framebuffer
+        .width = renderContext->swapchainExtent.width,
+        .height = renderContext->swapchainExtent.height,
+        .layers = 1,
+    };
+
+    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+        if (framebuffers[i] != VK_NULL_HANDLE) {
+            vkDestroyFramebuffer(device, framebuffers[i], renderContext->allocationCallbacks);
+        }
+        framebufferCreateInfo.pAttachments = renderContext->swapchainImageViews + i;
+        check(vkCreateFramebuffer(device, &framebufferCreateInfo, renderContext->allocationCallbacks, &framebuffers[i]));
+    }
+
+    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+        renderContext->framebuffers[i] = framebuffers[i];
+    }
+}
+
+void rc_init_sync(struct RenderContext *renderContext) {
+    if (renderContext->device == VK_NULL_HANDLE) {
+        exception_msg("Must create device before creating synchronization primitives\n");
+    }
+    VkDevice device = renderContext->device;
+    VkFence renderFence = VK_NULL_HANDLE;
+    VkSemaphore presentSemaphore = VK_NULL_HANDLE;
+    VkSemaphore renderSemaphore = VK_NULL_HANDLE;
+
+    VkFenceCreateInfo fenceCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+    };
+    check(vkCreateFence(device, &fenceCreateInfo, renderContext->allocationCallbacks, &renderFence));
+
+    VkSemaphoreCreateInfo semaphoreCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+    };
+    check(vkCreateSemaphore(device, &semaphoreCreateInfo, renderContext->allocationCallbacks, &presentSemaphore));
+    check(vkCreateSemaphore(device, &semaphoreCreateInfo, renderContext->allocationCallbacks, &renderSemaphore));
+
+    renderContext->renderFence = renderFence;
+    renderContext->presentSemaphore = presentSemaphore;
+    renderContext->renderSemaphore = renderSemaphore;
 }
 
 void rc_cleanup(struct RenderContext *renderContext) {
     printf("Cleaning up Vulkan\n");
-    if (renderContext->swapchain != VK_NULL_HANDLE) {
-        vkDestroySwapchainKHR(
+    check(vkWaitForFences(renderContext->device, 1, &renderContext->renderFence, true, 1000000000));
+    check(vkResetFences(renderContext->device, 1, &renderContext->renderFence));
+    vkDestroySemaphore(renderContext->device, renderContext->presentSemaphore, renderContext->allocationCallbacks);
+    vkDestroySemaphore(renderContext->device, renderContext->renderSemaphore, renderContext->allocationCallbacks);
+    vkDestroyFence(renderContext->device, renderContext->renderFence, renderContext->allocationCallbacks);
+    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+        if (renderContext->framebuffers[i] != VK_NULL_HANDLE) {
+            vkDestroyFramebuffer(
                 renderContext->device,
-                renderContext->swapchain,
+                renderContext->framebuffers[i],
                 renderContext->allocationCallbacks);
+        }
     }
-    if (renderContext->surface != VK_NULL_HANDLE) {
-        vkDestroySurfaceKHR(
-                renderContext->instance,
-                renderContext->surface,
+    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+        if (renderContext->swapchainImageViews[i] != VK_NULL_HANDLE) {
+            vkDestroyImageView(
+                renderContext->device,
+                renderContext->swapchainImageViews[i],
                 renderContext->allocationCallbacks);
+        }
     }
+    vkDestroySwapchainKHR(
+            renderContext->device,
+            renderContext->swapchain,
+            renderContext->allocationCallbacks);
+    vkDestroySurfaceKHR(
+            renderContext->instance,
+            renderContext->surface,
+            renderContext->allocationCallbacks);
+    vkDestroyRenderPass(renderContext->device, renderContext->renderPass, renderContext->allocationCallbacks);
+    vkDestroyCommandPool(renderContext->device, renderContext->commandPool, renderContext->allocationCallbacks);
     vkDestroyDevice(renderContext->device, renderContext->allocationCallbacks);
     vkDestroyInstance(renderContext->instance, renderContext->allocationCallbacks);
 }
@@ -677,8 +900,106 @@ struct RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
     printf("Configured swapchain\n");
     rc_init_swapchain(&context, 100, 100);
     printf("Created swapchain\n");
+    rc_init_render_pass(&context);
+    printf("Created render pass\n");
+    rc_init_framebuffers(&context);
+    printf("Created framebuffers\n");
+    rc_init_sync(&context);
+    printf("Created synchronization primitives\n");
 
     return context;
 }
 #endif
 
+void rc_draw(struct RenderContext* context) {
+    VkDevice device = context->device;
+    VkSwapchainKHR swapchain = context->swapchain;
+    VkFence renderFence = context->renderFence;
+    VkSemaphore renderSemaphore = context->renderSemaphore;
+    VkSemaphore presentSemaphore = context->presentSemaphore;
+    VkCommandBuffer cmd = context->commandBuffer;
+    VkRenderPass renderPass = context->renderPass;
+
+    check(vkWaitForFences(device, 1, &renderFence, true, 1000000000));
+    check(vkResetFences(device, 1, &renderFence));
+
+    uint32_t swapchainIndex;
+    check(vkAcquireNextImageKHR(device, swapchain, 1000000000, presentSemaphore, VK_NULL_HANDLE, &swapchainIndex));
+
+    check(vkResetCommandBuffer(cmd, 0));
+
+    VkCommandBufferBeginInfo cmdBeginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = NULL,
+        .pInheritanceInfo = NULL,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    check(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+    VkClearValue clearValue;
+    float flash = (float) sin((double) context->frameNumber / 120.0);
+    clearValue.color = (VkClearColorValue) { { 0.0f, 0.0f, flash, 1.0f } };
+
+    VkRenderPassBeginInfo rpInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .pNext = NULL,
+        .renderPass = renderPass,
+        .renderArea = (VkRect2D) {
+            .offset = (VkOffset2D) {
+                .x = 0,
+                .y = 0,
+            },
+            .extent = context->swapchainExtent,
+        },
+        .framebuffer = context->framebuffers[swapchainIndex],
+        .clearValueCount = 1,
+        .pClearValues = &clearValue,
+    };
+    vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdEndRenderPass(cmd);
+    check(vkEndCommandBuffer(cmd));
+
+    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkSubmitInfo submit = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = NULL,
+
+        .pWaitDstStageMask = &waitStage,
+
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &presentSemaphore,
+
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &renderSemaphore,
+
+        .commandBufferCount = 1,
+        .pCommandBuffers = &cmd,
+    };
+    check(vkQueueSubmit(context->queue, 1, &submit, renderFence));
+
+    VkPresentInfoKHR presentInfo = {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .pNext = NULL,
+        
+        .pSwapchains = &swapchain,
+        .swapchainCount = 1,
+
+        .pWaitSemaphores = &renderSemaphore,
+        .waitSemaphoreCount = 1,
+
+        .pImageIndices = &swapchainIndex,
+    };
+    check(vkQueuePresentKHR(context->queue, &presentInfo));
+
+    context->frameNumber++;
+}
+
+void rc_size_change(struct RenderContext* context, uint32_t width, uint32_t height) {
+    if (context->instance == VK_NULL_HANDLE) {
+        // wait to init first
+        return;
+    }
+    check(vkWaitForFences(context->device, 1, &context->renderFence, true, 1000000000));
+    rc_init_swapchain(context, width, height);
+    rc_init_framebuffers(context);
+}
