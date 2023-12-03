@@ -39,7 +39,7 @@ const size_t ENABLE_EXTENSIONS_COUNT = 4;
 const char* const ENABLE_LAYERS[] = {
     "VK_LAYER_KHRONOS_validation",
 };
-const size_t ENABLE_LAYERS_COUNT = 1;
+const size_t ENABLE_LAYERS_COUNT = 0;
 
 const char* const ENABLE_DEVICE_EXTENSIONS[] = {
     "VK_KHR_swapchain",

@@ -20,6 +20,23 @@
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lparam);
 struct RenderContext renderContext;
+bool resizeMode = false;
+bool resetDrawBounds = false;
+bool disableDraw = false;
+bool running = true;
+
+void draw(HWND hwnd) {
+    if (resetDrawBounds) {
+        RECT rect;
+        if (GetClientRect(hwnd, &rect)) {
+            uint32_t width = rect.right - rect.left;
+            uint32_t height = rect.bottom - rect.top;
+            rc_size_change(&renderContext, width, height);
+        }
+        resetDrawBounds = false;
+    }
+    rc_draw(&renderContext);
+}
 
 // int WinMain(
 //         HINSTANCE hInstance,
@@ -73,55 +90,65 @@ int main() {
         return 0;
     }
 
-    ShowWindow(hwnd, SW_SHOW);
-
     renderContext = rc_init_win32(hInstance, hwnd);
+
+    ShowWindow(hwnd, SW_SHOW);
 
     // Run the message loop.
 
     MSG msg = {0};
-    while (GetMessage(&msg, NULL, 0, 0) > 0)
-    {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
+    while (running) {
+        if (!disableDraw) {
+            printf("Draw\n");
+            draw(hwnd);
+        } else {
+            printf("No draw\n");
+        }
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) != 0) {
+            printf("Loop\n");
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
     }
 
     rc_cleanup(&renderContext);
     CoUninitialize();
     return 0;
 }
-int x= 0;
 
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    switch (uMsg)
-    {
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    printf("Event: %u\n", uMsg);
+    RECT rect;
+    switch (uMsg) {
+    case WM_SYSCOMMAND:
+        // printf("Sys: %Iu\n", wParam);
+        if (wParam == SC_MINIMIZE) {
+            disableDraw = true;
+        } else if (wParam == SC_RESTORE) {
+            disableDraw = false;
+        }
+        return DefWindowProc(hwnd, uMsg, wParam, lParam);
     case WM_DESTROY:
         PostQuitMessage(0);
+        running = false;
+        disableDraw = true;
         return 0;
-
     case WM_LBUTTONDOWN:
         printf("Received left mouse button\n");
-        // open file dialog lmfao
-        //return CCOMExample();
         return 0;
     case WM_PAINT:
-        // {
-        //     PAINTSTRUCT ps;
-        //     HDC hdc = BeginPaint(hwnd, &ps);
-
-        //     // All painting occurs here, between BeginPaint and EndPaint.
-
-        //     FillRect(hdc, &ps.rcPaint, (HBRUSH) (COLOR_WINDOW+1));
-
-        //     EndPaint(hwnd, &ps);
-        // }
-        rc_draw(&renderContext);
+        ValidateRect(hwnd, NULL);
         return 0;
     case WM_SIZE:
-        uint32_t width = LOWORD(lParam);
-        uint32_t height = HIWORD(lParam);
-        rc_size_change(&renderContext, width, height);
+        if (wParam != SIZE_MINIMIZED && (resizeMode || wParam == SIZE_MAXIMIZED)) {
+            resetDrawBounds = true;
+        }
+        return 0;
+    case WM_ENTERSIZEMOVE:
+        resizeMode = true;
+        return 0;
+    case WM_EXITSIZEMOVE:
+        resizeMode = true;
         return 0;
     }
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
