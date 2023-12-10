@@ -117,7 +117,7 @@ int main() {
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-    printf("Event: %u\n", uMsg);
+    // printf("Event: %u\n", uMsg);
     RECT rect;
     switch (uMsg) {
     case WM_SYSCOMMAND:
