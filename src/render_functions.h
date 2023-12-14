@@ -104,6 +104,15 @@ EXTERN PFN_vkCmdEndRenderPass vkCmdEndRenderPass INIT;
 EXTERN PFN_vkEndCommandBuffer vkEndCommandBuffer INIT;
 EXTERN PFN_vkQueueSubmit vkQueueSubmit INIT;
 EXTERN PFN_vkQueuePresentKHR vkQueuePresentKHR INIT;
+EXTERN PFN_vkCreateShaderModule vkCreateShaderModule INIT;
+EXTERN PFN_vkDestroyShaderModule vkDestroyShaderModule INIT;
+EXTERN PFN_vkCreateGraphicsPipelines vkCreateGraphicsPipelines INIT;
+EXTERN PFN_vkCreatePipelineLayout vkCreatePipelineLayout INIT;
+EXTERN PFN_vkDestroyPipeline vkDestroyPipeline INIT;
+EXTERN PFN_vkDestroyPipelineLayout vkDestroyPipelineLayout INIT;
+EXTERN PFN_vkCmdBindPipeline vkCmdBindPipeline INIT;
+EXTERN PFN_vkCmdDraw vkCmdDraw INIT;
+
 
 #undef EXTERN
 

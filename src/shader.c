@@ -1,7 +1,5 @@
 #include "shader.h"
+#include "backtrace.h"
+#include "util.h"
 
-bool load_shader_module(const char* source, VkShaderModule* outShaderModule) {
-
-    return false;
-}
 

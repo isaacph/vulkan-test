@@ -99,13 +99,10 @@ int main() {
     MSG msg = {0};
     while (running) {
         if (!disableDraw) {
-            printf("Draw\n");
             draw(hwnd);
         } else {
-            printf("No draw\n");
         }
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) != 0) {
-            printf("Loop\n");
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }

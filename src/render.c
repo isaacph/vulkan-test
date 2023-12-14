@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <vulkan/vulkan_core.h>
 #include <math.h>
+#include "shaders_generated.h"
 
 #define RENDER_MAX_ERR_MSG_LENGTH 128
 
@@ -198,6 +199,8 @@ struct RenderContext rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstance
         .presentSemaphore = VK_NULL_HANDLE,
         .renderSemaphore = VK_NULL_HANDLE,
         .frameNumber = 0,
+        .trianglePipelineLayout = VK_NULL_HANDLE,
+        .trianglePipeline = VK_NULL_HANDLE,
     };
 
     free(extensions);
@@ -814,6 +817,10 @@ void rc_init_sync(struct RenderContext *renderContext) {
 
 void rc_cleanup(struct RenderContext *renderContext) {
     printf("Cleaning up Vulkan\n");
+    vkDestroyPipeline(renderContext->device, renderContext->trianglePipeline, renderContext->allocationCallbacks);
+    vkDestroyPipelineLayout(renderContext->device, renderContext->trianglePipelineLayout, renderContext->allocationCallbacks);
+    vkDestroyShaderModule(renderContext->device, renderContext->triangleFragShader, renderContext->allocationCallbacks);
+    vkDestroyShaderModule(renderContext->device, renderContext->triangleVertShader, renderContext->allocationCallbacks);
     check(vkWaitForFences(renderContext->device, 1, &renderContext->renderFence, true, 1000000000));
     check(vkResetFences(renderContext->device, 1, &renderContext->renderFence));
     vkDestroySemaphore(renderContext->device, renderContext->presentSemaphore, renderContext->allocationCallbacks);
@@ -906,6 +913,8 @@ struct RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
     printf("Created framebuffers\n");
     rc_init_sync(&context);
     printf("Created synchronization primitives\n");
+    rc_init_pipelines(&context);
+    printf("Initialized pipelines\n");
 
     return context;
 }
@@ -956,6 +965,8 @@ void rc_draw(struct RenderContext* context) {
         .pClearValues = &clearValue,
     };
     vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, context->trianglePipeline);
+    vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRenderPass(cmd);
     check(vkEndCommandBuffer(cmd));
 
@@ -1003,3 +1014,199 @@ void rc_size_change(struct RenderContext* context, uint32_t width, uint32_t heig
     rc_init_swapchain(context, width, height);
     rc_init_framebuffers(context);
 }
+
+VkResult rc_load_shader_module(struct RenderContext* rc, const unsigned char* source, uint32_t length, VkShaderModule* outShaderModule) {
+    if (length % 4 != 0) {
+        exception_msg("Invalid SPIRV source length: %u is not divisible by four!");
+    }
+    VkShaderModuleCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = length,
+        .pCode = (const uint32_t*) source,
+        .pNext = NULL,
+    };
+
+    VkShaderModule shaderModule;
+    VkResult r = vkCreateShaderModule(rc->device, &createInfo, NULL, &shaderModule);
+    *outShaderModule = shaderModule;
+
+    return r;
+}
+
+void rc_init_pipelines(struct RenderContext* rc) {
+    VkShaderModule triangleFragShader = VK_NULL_HANDLE;
+    VkShaderModule triangleVertShader = VK_NULL_HANDLE;
+    check(rc_load_shader_module(
+        rc,
+        SHADER_triangle_frag,
+        SHADER_triangle_frag_len,
+        &triangleFragShader)
+    );
+    check(rc_load_shader_module(
+        rc,
+        SHADER_triangle_vert,
+        SHADER_triangle_vert_len,
+        &triangleVertShader)
+    );
+
+    rc->triangleFragShader = triangleFragShader;
+    rc->triangleVertShader = triangleVertShader;
+
+    VkPipelineLayout trianglePipelineLayout = VK_NULL_HANDLE;
+    VkPipeline trianglePipeline = VK_NULL_HANDLE;
+    
+    // pipeline layout
+    VkPipelineLayoutCreateInfo layoutCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .setLayoutCount = 0,
+        .pSetLayouts = NULL,
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = NULL,
+    };
+    check(vkCreatePipelineLayout(rc->device, &layoutCreateInfo, rc->allocationCallbacks, &trianglePipelineLayout));
+    
+
+
+    // shaders
+    VkPipelineShaderStageCreateInfo vertShaderStageCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = NULL,
+        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+        .module = rc->triangleVertShader,
+        .pName = "main",
+        .flags = 0,
+        .pSpecializationInfo = NULL,
+    };
+    VkPipelineShaderStageCreateInfo fragShaderStageCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = NULL,
+        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .module = rc->triangleFragShader,
+        .pName = "main",
+        .flags = 0,
+        .pSpecializationInfo = NULL,
+    };
+    VkPipelineShaderStageCreateInfo shaderStages[] = {
+        vertShaderStageCreateInfo,
+        fragShaderStageCreateInfo,
+    };
+
+    VkPipelineVertexInputStateCreateInfo vertexInputState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .vertexBindingDescriptionCount = 0,
+        .vertexAttributeDescriptionCount = 0,
+    };
+    VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_TRUE,
+    };
+
+    // viewport state info
+    VkViewport viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = rc->swapchainExtent.width,
+        .height = rc->swapchainExtent.height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+    VkRect2D rect = {
+        .offset = (VkOffset2D) {
+            .x = 0.0f,
+            .y = 0.0f,
+        },
+        .extent = rc->swapchainExtent,
+    };
+    VkPipelineViewportStateCreateInfo viewportState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .viewportCount = 1,
+        .pViewports = &viewport,
+        .scissorCount = 1,
+        .pScissors = &rect,
+    };
+
+    // rasterization state info
+    VkPipelineRasterizationStateCreateInfo rasterizationState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .depthClampEnable = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .lineWidth = 1.0f,
+        .cullMode = VK_CULL_MODE_NONE,
+        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+        .depthBiasEnable = VK_FALSE,
+        .depthBiasConstantFactor = 0.0f,
+        .depthBiasClamp = 0.0f,
+        .depthBiasSlopeFactor = 0.0f,
+    };
+
+    // multisample state info
+    VkPipelineMultisampleStateCreateInfo multisampleState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .sampleShadingEnable = VK_FALSE,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .minSampleShading = 1.0f,
+        .pSampleMask = NULL,
+        .alphaToCoverageEnable = VK_FALSE,
+        .alphaToOneEnable = VK_FALSE,
+    };
+
+    // color blend state
+    VkPipelineColorBlendAttachmentState colorBlendAttachment = {
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
+            VK_COLOR_COMPONENT_G_BIT |
+            VK_COLOR_COMPONENT_B_BIT |
+            VK_COLOR_COMPONENT_A_BIT,
+        .blendEnable = VK_FALSE,
+    };
+    VkPipelineColorBlendStateCreateInfo colorBlendState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY,
+        .attachmentCount = 1,
+        .pAttachments = &colorBlendAttachment,
+    };
+
+    VkGraphicsPipelineCreateInfo pipelineInfo = {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext = NULL,
+        .stageCount = sizeof(shaderStages) / sizeof(shaderStages[0]),
+        .pStages = shaderStages,
+        .pVertexInputState = &vertexInputState,
+        .pInputAssemblyState = &inputAssemblyState,
+        .pTessellationState = NULL,
+        .pViewportState = &viewportState,
+        .pRasterizationState = &rasterizationState,
+        .pMultisampleState = &multisampleState,
+        .pDepthStencilState = NULL,
+        .pColorBlendState = &colorBlendState,
+        .pDynamicState = NULL,
+        .layout = trianglePipelineLayout,
+        .renderPass = rc->renderPass,
+        .subpass = 0,
+        .basePipelineHandle = VK_NULL_HANDLE,
+    };
+    check(vkCreateGraphicsPipelines(
+                rc->device,
+                VK_NULL_HANDLE,
+                1,
+                &pipelineInfo,
+                rc->allocationCallbacks,
+                &trianglePipeline));
+
+    rc->trianglePipelineLayout = trianglePipelineLayout;
+    rc->trianglePipeline = trianglePipeline;
+}
+

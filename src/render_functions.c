@@ -68,5 +68,13 @@ void init_device_functions(VkDevice device) {
     check(vkEndCommandBuffer = (PFN_vkEndCommandBuffer)load(device, "vkEndCommandBuffer"));
     check(vkQueueSubmit = (PFN_vkQueueSubmit)load(device, "vkQueueSubmit"));
     check(vkQueuePresentKHR = (PFN_vkQueuePresentKHR)load(device, "vkQueuePresentKHR"));
+    check(vkCreateShaderModule = (PFN_vkCreateShaderModule)load(device, "vkCreateShaderModule"));
+    check(vkDestroyShaderModule = (PFN_vkDestroyShaderModule)load(device, "vkDestroyShaderModule"));
+    check(vkCreateGraphicsPipelines = (PFN_vkCreateGraphicsPipelines)load(device, "vkCreateGraphicsPipelines"));
+    check(vkCreatePipelineLayout = (PFN_vkCreatePipelineLayout)load(device, "vkCreatePipelineLayout"));
+    check(vkDestroyPipeline = (PFN_vkDestroyPipeline)load(device, "vkDestroyPipeline"));
+    check(vkDestroyPipelineLayout = (PFN_vkDestroyPipelineLayout)load(device, "vkDestroyPipelineLayout"));
+    check(vkCmdBindPipeline = (PFN_vkCmdBindPipeline)load(device, "vkCmdBindPipeline"));
+    check(vkCmdDraw = (PFN_vkCmdDraw)load(device, "vkCmdDraw"));
 }
 
