@@ -1013,6 +1013,7 @@ void rc_size_change(struct RenderContext* context, uint32_t width, uint32_t heig
     check(vkWaitForFences(context->device, 1, &context->renderFence, true, 1000000000));
     rc_init_swapchain(context, width, height);
     rc_init_framebuffers(context);
+    rc_init_pipelines(context);
 }
 
 VkResult rc_load_shader_module(struct RenderContext* rc, const unsigned char* source, uint32_t length, VkShaderModule* outShaderModule) {
@@ -1034,8 +1035,11 @@ VkResult rc_load_shader_module(struct RenderContext* rc, const unsigned char* so
 }
 
 void rc_init_pipelines(struct RenderContext* rc) {
+    VkPipelineLayout trianglePipelineLayout = rc->trianglePipelineLayout;
+    VkPipeline trianglePipeline = rc->trianglePipeline;
     VkShaderModule triangleFragShader = VK_NULL_HANDLE;
     VkShaderModule triangleVertShader = VK_NULL_HANDLE;
+
     check(rc_load_shader_module(
         rc,
         SHADER_triangle_frag,
@@ -1052,22 +1056,24 @@ void rc_init_pipelines(struct RenderContext* rc) {
     rc->triangleFragShader = triangleFragShader;
     rc->triangleVertShader = triangleVertShader;
 
-    VkPipelineLayout trianglePipelineLayout = VK_NULL_HANDLE;
-    VkPipeline trianglePipeline = VK_NULL_HANDLE;
-    
-    // pipeline layout
-    VkPipelineLayoutCreateInfo layoutCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .setLayoutCount = 0,
-        .pSetLayouts = NULL,
-        .pushConstantRangeCount = 0,
-        .pPushConstantRanges = NULL,
-    };
-    check(vkCreatePipelineLayout(rc->device, &layoutCreateInfo, rc->allocationCallbacks, &trianglePipelineLayout));
-    
+    if (!trianglePipelineLayout) {
+        // pipeline layout
+        VkPipelineLayoutCreateInfo layoutCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .setLayoutCount = 0,
+            .pSetLayouts = NULL,
+            .pushConstantRangeCount = 0,
+            .pPushConstantRanges = NULL,
+        };
+        check(vkCreatePipelineLayout(rc->device, &layoutCreateInfo, rc->allocationCallbacks, &trianglePipelineLayout));
+    }
 
+    if (trianglePipeline) {
+        vkDestroyPipeline(rc->device, trianglePipeline, rc->allocationCallbacks);
+        trianglePipeline = rc->trianglePipeline = VK_NULL_HANDLE;
+    }
 
     // shaders
     VkPipelineShaderStageCreateInfo vertShaderStageCreateInfo = {
