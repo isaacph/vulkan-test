@@ -1037,21 +1037,25 @@ VkResult rc_load_shader_module(struct RenderContext* rc, const unsigned char* so
 void rc_init_pipelines(struct RenderContext* rc) {
     VkPipelineLayout trianglePipelineLayout = rc->trianglePipelineLayout;
     VkPipeline trianglePipeline = rc->trianglePipeline;
-    VkShaderModule triangleFragShader = VK_NULL_HANDLE;
-    VkShaderModule triangleVertShader = VK_NULL_HANDLE;
+    VkShaderModule triangleFragShader = rc->triangleFragShader;
+    VkShaderModule triangleVertShader = rc->triangleVertShader;
 
-    check(rc_load_shader_module(
-        rc,
-        SHADER_triangle_frag,
-        SHADER_triangle_frag_len,
-        &triangleFragShader)
-    );
-    check(rc_load_shader_module(
-        rc,
-        SHADER_triangle_vert,
-        SHADER_triangle_vert_len,
-        &triangleVertShader)
-    );
+    if (!triangleFragShader) {
+        check(rc_load_shader_module(
+            rc,
+            SHADER_triangle_frag,
+            SHADER_triangle_frag_len,
+            &triangleFragShader)
+        );
+    }
+    if (!triangleVertShader) {
+        check(rc_load_shader_module(
+            rc,
+            SHADER_triangle_vert,
+            SHADER_triangle_vert_len,
+            &triangleVertShader)
+        );
+    }
 
     rc->triangleFragShader = triangleFragShader;
     rc->triangleVertShader = triangleVertShader;
@@ -1214,5 +1218,7 @@ void rc_init_pipelines(struct RenderContext* rc) {
 
     rc->trianglePipelineLayout = trianglePipelineLayout;
     rc->trianglePipeline = trianglePipeline;
+    rc->triangleVertShader = triangleVertShader;
+    rc->triangleFragShader = triangleFragShader;
 }
 
