@@ -3,6 +3,11 @@
 #include <stdbool.h>
 #include "util.h"
 #include "render_functions.h"
+#include <ft2build.h>
+
+#include <freetype/freetype.h>
+#include <freetype/ftoutln.h>
+
 #define RC_SWAPCHAIN_LENGTH 3
 
 struct RenderContext {

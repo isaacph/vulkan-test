@@ -40,6 +40,7 @@ include_directories($ENV{UniversalCRTSdkDir}/Include/10.0.10056.0/ucrt)
 
 find_package(VulkanHeaders)
 find_package(VulkanLoader)
+find_package(Freetype)
 
 find_program(GLSL_VALIDATOR glslangValidator HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
 
@@ -162,6 +163,7 @@ target_link_libraries(VulkanTest
     Vulkan::Headers
 # vvl # should be Vulkan::Validationlayers :( actually can't link this lol
 #    volk::volk
+    Freetype::Freetype
     )
 
 if (WIN32)
