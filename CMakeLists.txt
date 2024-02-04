@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 cmake_policy(SET CMP0092 NEW) # to not warn about /W3 flags being overriden
 project(VulkanTest
     VERSION 1.0
-    DESCRIPTION "Learning vulkan and MSVC toolchain"
+    DESCRIPTION "Learning vulkan and CMake on windows"
     LANGUAGES C)
 
 # add_compile_options(-fsanitize=address)
@@ -19,24 +19,6 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 include_directories($ENV{UniversalCRTSdkDir}/Include/ucrt)
 include_directories($ENV{UniversalCRTSdkDir}/Include/10.0.10056.0/ucrt)
-
-# # this doesn't work on rerun
-# # disable find package for non-subprojects
-# macro(find_package)
-#     if(NOT "${ARG0}" IN_LIST as_subproject)
-#         _find_package(${ARGV})
-#     endif()
-# endmacro()
-
-# set(CMAKE_PREFIX_PATH "/prefix")
-# add_subdirectory(subprojects/Vulkan-ValidationLayers)
-# add_subdirectory(subprojects/Vulkan-Headers)
-# add_subdirectory(subprojects/Vulkan-Loader)
-# add_subdirectory(subprojects/Vulkan-Utility-Libraries)
-# add_subdirectory(subprojects/SPIRV-Headers)
-# add_subdirectory(subprojects/SPIRV-Tools)
-# set(VOLK_INSTALL ON)
-# add_subdirectory(subprojects/volk)
 
 find_package(VulkanHeaders)
 find_package(VulkanLoader)
@@ -105,68 +87,36 @@ add_custom_target(
       ${SHADERS_GENERATED}
     )
 
-# include(CMakeFindDependencyMacro)
-
-# include(ExternalProject)
-
-# # GIT_RESPOSITORY "https://github.com/KhronosGroup/Vulkan-Headers.git"
-# ExternalProject_Add(
-#     VulkanHeaders
-#     SOURCE_DIR "${CMAKE_SOURCE_DIR}/subprojects/Vulkan-Headers"
-#     CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}"
-#     )
-# ExternalProject_Add(
-#     VulkanLoader
-#     SOURCE_DIR "${CMAKE_SOURCE_DIR}/subprojects/Vulkan-Loader"
-#     CMAKE_ARGS -DVULKAN_HEADERS_INSTALL_DIR=${CMAKE_CURRENT_BINARY_DIR}
-#                -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}
-#    DEPENDS VulkanHeaders)
-# add_library(vulkan "${CMAKE_CURRENT_BINARY_DIR}/bin/vulkan-1.dll")
-# 
-# # include("subprojects/vulkan/vulkan.cmake")
-# 
-# link_directories("")
-
-# include_directories("subprojects/Vulkan-Headers/include")
-
-#set(ENV{VULKAN_SDK} "${CMAKE_SOURCE_DIR}/subprojects/Vulkan-Headers")
-
 # set(SUBSYSTEM_LINKER_OPTIONS "/SUBSYSTEM:WINDOWS")
 
 configure_file(src/config.h.in config.h)
-add_executable(VulkanTest
+add_library(Main STATIC
     src/main.c
     src/render.c
     src/render_util.c
     src/backtrace.c
-    # src/segfault.c
     src/render_functions.c
     src/shader.c
-    shaders/triangle.frag.spv.h
-    shaders/triangle.vert.spv.h
-    # src/ccomexample.c
+    src/util/memory.c
     )
-add_dependencies(VulkanTest Shaders)
+add_dependencies(Main Shaders)
+target_include_directories(Main PUBLIC src)
+target_include_directories(Main PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/include")
+target_link_libraries(Main
+    Vulkan::Headers
+    )
+if (WIN32)
+    target_link_libraries(Main dbghelp legacy_stdio_definitions)
+endif (WIN32)
+
+add_executable(Game src/fake_main.c)
+target_include_directories(Game PRIVATE src)
+target_link_libraries(Game Main)
 # target_compile_definitions(VulkanTest PRIVATE UNICODE _UNICODE)
 # target_include_directories(VulkanTest PRIVATE src)
 
-target_include_directories(VulkanTest PRIVATE src)
-target_include_directories(VulkanTest PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
-# target_include_directories(VulkanTest PRIVATE Vulkan::Loader)
-# target_include_directories(VulkanTest PRIVATE Vulkan::Headers)
-# # target_include_directories(VulkanTest PRIVATE "subprojects/Vulkan-Headers/include")
-# # target_include_directories(VulkanTest PRIVATE "subprojects/volk")
 
-target_link_libraries(VulkanTest
-    #    Vulkan::Loader
-    Vulkan::Headers
-# vvl # should be Vulkan::Validationlayers :( actually can't link this lol
-#    volk::volk
-    )
-
-if (WIN32)
-    target_link_libraries(VulkanTest dbghelp legacy_stdio_definitions)
-endif (WIN32)
+add_subdirectory(test)
 
 # annoying, reevaluate later
 # if(MSVC)
@@ -175,7 +125,7 @@ endif (WIN32)
 #     target_compile_options(VulkanTest PRIVATE -Wall -Wextra -Wpedantic -Werror)
 # endif()
 
-install(TARGETS VulkanTest)
+install(TARGETS Game)
  
 # # use this to print targets wherever you paste it
 # function(print_all_targets DIR)
@@ -193,3 +143,4 @@ install(TARGETS VulkanTest)
 # 
 # message("ALL TARGETS BELOW")
 # print_all_targets(.)
+
