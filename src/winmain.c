@@ -43,7 +43,7 @@ void draw(HWND hwnd) {
 //         HINSTANCE hPrevInstance,
 //         LPSTR lpCmdLine,
 //         int nCmdShow) {
-int main() {
+int real_main() {
     HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
     if (FAILED(hr)) {
         printf("Error initializing COM library: %ld", hr);

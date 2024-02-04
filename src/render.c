@@ -209,10 +209,6 @@ struct RenderContext rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstance
     return renderContext;
 }
 
-bool validate_surface_capabilities(VkPhysicalDevice device, VkSurfaceKHR surface) {
-    return true;
-}
-
 void rc_init_device(struct RenderContext* renderContext) {
     if (renderContext->surface == VK_NULL_HANDLE) {
         exception_msg("Surface must be initialized before device can be initialized (reason: used to decide which physical device supports the surface)\n");
@@ -1010,7 +1006,7 @@ void rc_draw(struct RenderContext* context) {
     };
     vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, context->trianglePipeline);
-    vkCmdDraw(cmd, 3, 1, 0, 0);
+    vkCmdDraw(cmd, 6, 1, 0, 0);
     vkCmdEndRenderPass(cmd);
     check(vkEndCommandBuffer(cmd));
 
