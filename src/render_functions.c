@@ -1,6 +1,6 @@
 #define RC_FUNCTION_DECLARATION
 #include "render_functions.h"
-#include "vulkan/vulkan_core.h"
+#include "backtrace.h"
 
 static void check(void* res) {
     if (res == NULL) {

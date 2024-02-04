@@ -1,9 +1,9 @@
 #include "app.h"
+#include "backtrace.h"
 #include "util.h"
 #include "render.h"
 #include "render_util.h"
 #include <stdbool.h>
-#include <vulkan/vulkan_core.h>
 #include <math.h>
 #include "shaders_generated.h"
 
@@ -68,7 +68,7 @@ const int REQUIRE_PHYSICAL_DEVICE_QUEUE_FAMILY_FLAG = VK_QUEUE_GRAPHICS_BIT;
 //https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap5.html#devsandqueues-device-creation
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap47.html
 
-struct RenderContext rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr) {
+struct RenderContext rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr, const char** requiredExtenions, uint32_t requiredExtensionsLength) {
 
     // variables we are keeping around
     uint32_t extensionsCount;
@@ -295,11 +295,13 @@ void rc_init_device(struct RenderContext* renderContext) {
                             i);
                     continue;
                 }
+#if defined(_WIN32)
                 if (vkGetPhysicalDeviceWin32PresentationSupportKHR(device, i)
                         == VK_FALSE) {
                     printf("Queue family %i does not support Win32 presentation", i);
                     continue;
                 }
+#endif
 
                 foundQFIndex = i;
                 foundQueueFamily = true;
@@ -919,6 +921,48 @@ struct RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
     return context;
 }
 #endif
+
+// #if defined(USE_GLFW)
+// #include <GLFW/glfw3.h>
+// struct RenderContext rc_init_glfw(GLFWwindow* window) {
+//     // load the Vulkan loader
+//     PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) glfwGetInstanceProcAddress;
+// 
+//     // call instance init
+//     struct RenderContext context = rc_init_instance(fp_vkGetInstanceProcAddr);
+// 
+//     // make glfw surface
+//     {
+//         VkWin32SurfaceCreateInfoKHR createInfo = {
+//             .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+//             .pNext = NULL,
+//             .flags = 0,
+//             .hinstance = hInstance,
+//             .hwnd = hwnd,
+//         };
+//         check(vkCreateWin32SurfaceKHR(context.instance, &createInfo, context.allocationCallbacks, &context.surface));
+//     }
+//     printf("Created win32 surface\n");
+// 
+//     rc_init_device(&context);
+// 
+//     // set up the swapchain
+//     rc_configure_swapchain(&context);
+//     printf("Configured swapchain\n");
+//     rc_init_swapchain(&context, 100, 100);
+//     printf("Created swapchain\n");
+//     rc_init_render_pass(&context);
+//     printf("Created render pass\n");
+//     rc_init_framebuffers(&context);
+//     printf("Created framebuffers\n");
+//     rc_init_sync(&context);
+//     printf("Created synchronization primitives\n");
+//     rc_init_pipelines(&context);
+//     printf("Initialized pipelines\n");
+// 
+//     return context;
+// }
+// #endif
 
 void rc_draw(struct RenderContext* context) {
     VkDevice device = context->device;

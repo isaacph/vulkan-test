@@ -42,6 +42,12 @@ find_package(VulkanHeaders)
 find_package(VulkanLoader)
 find_package(Freetype)
 
+if (UNIX)
+    find_package(PkgConfig REQUIRED)
+    find_package(glfw3 REQUIRED)
+    pkg_check_modules(unwind REQUIRED IMPORTED_TARGET libunwind)
+endif (UNIX)
+
 find_program(GLSL_VALIDATOR glslangValidator HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
 
 set(SHADERS_GENERATED "${PROJECT_BINARY_DIR}/include/shaders_generated.h")
@@ -134,19 +140,31 @@ add_custom_target(
 
 # set(SUBSYSTEM_LINKER_OPTIONS "/SUBSYSTEM:WINDOWS")
 
-configure_file(src/config.h.in config.h)
-add_executable(VulkanTest
-    src/main.c
+list(APPEND sources
     src/render.c
     src/render_util.c
     src/backtrace.c
     # src/segfault.c
     src/render_functions.c
-    src/shader.c
+    # src/shader.c
     shaders/triangle.frag.spv.h
     shaders/triangle.vert.spv.h
     # src/ccomexample.c
     )
+if (WIN32)
+list(APPEND sources
+    src/winmain.c
+    )
+endif (WIN32)
+
+if (UNIX)
+list(APPEND sources
+    src/glfwmain.c
+    )
+endif (UNIX)
+
+configure_file(src/config.h.in config.h)
+add_executable(VulkanTest ${sources})
 add_dependencies(VulkanTest Shaders)
 # target_compile_definitions(VulkanTest PRIVATE UNICODE _UNICODE)
 # target_include_directories(VulkanTest PRIVATE src)
@@ -165,6 +183,11 @@ target_link_libraries(VulkanTest
 #    volk::volk
     Freetype::Freetype
     )
+
+if (UNIX)
+    target_link_libraries(VulkanTest unwind m)
+    target_link_libraries(VulkanTest glfw)
+endif (UNIX)
 
 if (WIN32)
     target_link_libraries(VulkanTest dbghelp legacy_stdio_definitions)

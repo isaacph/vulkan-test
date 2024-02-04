@@ -21,3 +21,10 @@ Trying a Vulkan test with msys2's mingw-w64 target on Windows, using meson as a 
 ### Runtime dependencies
 
 * vulkan-1.dll
+
+
+### Last was
+
+I need to combine the array of required extensions from GLFW with my own required extensions
+This means I need to be able to dynamically allocate arrays, which is the type of algorithm I want to at least unit test
+This means I need my unit testing code from the other computer. Let's get it later

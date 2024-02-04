@@ -7,4 +7,6 @@
 #define APP_ENGINE_VERSION 0
 #define APP_ENGINE_NAME "Isaac's Vulkan Engine"
 
+#define USE_GLFW
+
 #endif

@@ -41,12 +41,12 @@ void init_device_functions(VkDevice device);
 // main vulkan API prototypes are below
 // using a macro EXTERN to define these as "extern" via header but as linkable variables
 // via render_functions.c
-#ifdef RC_FUNCTION_DECLARATION
+#ifndef RC_FUNCTION_DECLARATION
 #define EXTERN extern
-#define INIT = NULL
+#define INIT
 #else
 #define EXTERN
-#define INIT
+#define INIT = NULL
 #endif
 
 // loader functions

@@ -1,5 +1,6 @@
 #ifndef RENDER_H_INCLUDED
 #define RENDER_H_INCLUDED
+#include "app.h"
 #include <stdbool.h>
 #include "util.h"
 #include "render_functions.h"
@@ -48,6 +49,9 @@ void rc_init_pipelines(struct RenderContext* context);
 
 #if defined(_WIN32)
 struct RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd);
+#elif defined(USE_GLFW)
+#include <GLFW/glfw3.h>
+struct RenderContext rc_init_glfw(GLFWwindow* window);
 #endif
 
 #endif

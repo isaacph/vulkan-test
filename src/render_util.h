@@ -1,7 +1,7 @@
 #ifndef RENDER_UTIL_H_INCLUDED
 #define RENDER_UTIL_H_INCLUDED
 
-#include <vulkan/vulkan_core.h>
+#include "render_functions.h"
 
 // caller must free return value
 const char* interpret_VK_API_VERSION(uint32_t version);

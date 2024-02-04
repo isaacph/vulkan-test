@@ -1,7 +1,5 @@
-#include <windows.h>
 #include "backtrace.h"
-#include <errhandlingapi.h>
-#include <excpt.h>
+#include <stdio.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -36,14 +34,11 @@ void force_interrupt() {
 }
 
 #if defined(__linux__)
+#include <libunwind.h>
+
 // don't free the return value
 const char* get_executable_path() {
-#if defined(_WIN32)
-    // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/get-pgmptr?view=msvc-170
-    return _pgmptr;
-#else
     return NULL;
-#endif
 }
 
 void exception_backtrace_error_callback(void* data, const char* msg, int errnum) {
@@ -65,22 +60,28 @@ void init_exceptions(bool threaded) {
     // char* executable2 = malloc(len);
     // snprintf(executable2, len, "%s.p", executable);
     // printf("Found executable name: %s\n", executable2);
-    backtrace_state = backtrace_create_state(executable, threaded, exception_backtrace_error_callback, NULL);
+    // backtrace_state = backtrace_create_state(executable, threaded, exception_backtrace_error_callback, NULL);
 }
 
-void do_backtrace() {
-    backtrace_full(
-            backtrace_state,
-            1,
-            exception_backtrace_full_callback,
-            exception_backtrace_error_callback,
-            NULL);
-    backtrace_print(backtrace_state, 1, stdout);
+void do_backtrace(bool fatal) {
+    // backtrace_full(
+    //         backtrace_state,
+    //         1,
+    //         exception_backtrace_full_callback,
+    //         exception_backtrace_error_callback,
+    //         NULL);
+    // backtrace_print(backtrace_state, 1, stdout);
+
+    if (fatal) {
+        exit(1);
+    }
 }
 #endif
 
 
 #if defined(_WIN32)
+#include <windows.h>
+#include <errhandlingapi.h>
 
 const char* signal_name(int s) {
     switch(s) {
