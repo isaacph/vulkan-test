@@ -7,7 +7,7 @@
 #endif
 #include <windows.h>
 #include <stdio.h>
-#include "render.h"
+#include "render/context.h"
 #include "backtrace.h"
 #include "ccomexample.h"
 
@@ -19,7 +19,7 @@
 //
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lparam);
-struct RenderContext renderContext;
+RenderContext renderContext;
 bool resizeMode = false;
 bool resetDrawBounds = false;
 bool disableDraw = false;
@@ -108,7 +108,7 @@ int real_main() {
         }
     }
 
-    rc_cleanup(&renderContext);
+    rc_destroy(&renderContext);
     CoUninitialize();
     return 0;
 }

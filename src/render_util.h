@@ -4,12 +4,9 @@
 #include <stdint.h>
 #include <vulkan/vulkan_core.h>
 
-// caller must free return value
-const char* interpret_VK_API_VERSION(uint32_t version);
-// caller must free return value
-const char* interpret_VkExtensionProperties(uint32_t count, VkExtensionProperties* extensions);
-// caller must free return value
-const char* interpret_VkLayerProperties(uint32_t count, VkLayerProperties* layers);
+void calc_VK_API_VERSION(uint32_t version, char* out_memory, uint32_t out_len);
+void print_VkExtensionProperties(uint32_t count, VkExtensionProperties* extensions);
+void print_VkLayerProperties(uint32_t count, VkLayerProperties* layers);
 
 // void interpret_VK_API_VERSION(uint32_t version, char* out_memory, uint64_t memory_length);
 // void interpret_VkExtensionProperties(uint32_t count, VkExtensionProperties* extensions, char* out_memory, uint64_t memory_length);

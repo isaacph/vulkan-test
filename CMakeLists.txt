@@ -92,12 +92,17 @@ add_custom_target(
 configure_file(src/config.h.in config.h)
 add_library(Main STATIC
     src/main.c
-    src/render.c
-    src/render_util.c
     src/backtrace.c
-    src/render_functions.c
     src/shader.c
     src/util/memory.c
+    src/render/device.c
+    src/render/functions.c
+    src/render/image.c
+    src/render/instance.c
+    src/render/loop.c
+    src/render/swapchain.c
+    src/render/util.c
+    src/render/win32.c
     )
 add_dependencies(Main Shaders)
 target_include_directories(Main PUBLIC src)
@@ -116,7 +121,7 @@ target_link_libraries(Game Main)
 # target_include_directories(VulkanTest PRIVATE src)
 
 
-add_subdirectory(test)
+# add_subdirectory(test)
 
 # annoying, reevaluate later
 # if(MSVC)

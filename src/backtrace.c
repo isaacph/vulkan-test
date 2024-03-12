@@ -162,7 +162,6 @@ void do_backtrace(bool fatal) {
         printf("%i: %s:%s:%lu - 0x%0llX\n", frames - i - 1, line.FileName, symbol->Name, line.LineNumber, symbol->Address);
     }
 
-    printf("Test4\n");
     free( symbol );
     SymCleanup(process);
 
