@@ -15,6 +15,14 @@ typedef struct SwapchainImageData {
     VkImageView swapchainImageView;
 } SwapchainImageData;
 
+typedef struct AllocatedImage {
+    VkImage image;
+    VkImageView imageView;
+    // insert memory stuff
+    VkExtent3D imageExtent;
+    VkFormat imageFormat;
+} AllocatedImage;
+
 typedef struct RenderContext {
     VkInstance instance;
     VkPhysicalDevice physicalDevice;
@@ -29,6 +37,9 @@ typedef struct RenderContext {
     FrameData frames[RC_SWAPCHAIN_LENGTH];
     SwapchainImageData images[RC_SWAPCHAIN_LENGTH];
     uint64_t frameNumber;
+
+    AllocatedImage drawImage;
+    VkExtent2D drawExtent;
 } RenderContext;
 
 RenderContext rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr);
@@ -40,10 +51,14 @@ void rc_size_change(RenderContext* context, uint32_t width, uint32_t height);
 // VkResult rc_load_shader_module(RenderContext* rc, const unsigned char* source, uint32_t length, VkShaderModule* outShaderModule);
 // void rc_init_pipelines(RenderContext* context);
 void rc_init_loop(RenderContext* context);
-void rc_transition_image(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
-VkImageSubresourceRange basic_image_subresource_range(VkImageAspectFlags aspectMask);
 #if defined(_WIN32)
 struct RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd);
 #endif
+
+// image functions
+VkImageSubresourceRange basic_image_subresource_range(VkImageAspectFlags aspectMask);
+void rc_transition_image(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
+VkImageViewCreateInfo imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
+VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
 
 #endif // RENDER_CONTEXT_H_INCLUDED 

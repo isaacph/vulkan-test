@@ -58,6 +58,13 @@ void rc_init_swapchain(RenderContext* renderContext, uint32_t width, uint32_t he
     VkSwapchainKHR swapchain = renderContext->swapchain;
     VkSurfaceKHR surface = renderContext->surface;
     VkSurfaceFormatKHR surfaceFormat = renderContext->surfaceFormat;
+    AllocatedImage drawImage = {
+        .image = VK_NULL_HANDLE,
+        .imageView = VK_NULL_HANDLE,
+        .imageExtent = (VkExtent3D) { 0 },
+        .imageFormat = NULL,
+    };
+    VkExtent2D drawExtent = { 0 };
 
     // find surface extent and validate surface
     VkExtent2D extent = { 0 };
@@ -226,6 +233,50 @@ void rc_init_swapchain(RenderContext* renderContext, uint32_t width, uint32_t he
         renderContext->images[i].swapchainImageView = view;
     }
 
+	//draw image size will match the window
+	VkExtent3D drawImageExtent = {
+		width,
+		height,
+		1
+	};
+
+	//hardcoding the draw format to 32 bit float
+	drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+	drawImage.imageExtent = drawImageExtent;
+
+	VkImageUsageFlags drawImageUsages = 0;
+	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
+	drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+
+	// //for the draw image, we want to allocate it from gpu local memory
+	// VmaAllocationCreateInfo rimg_allocinfo = {};
+	// rimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	// rimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	// //allocate and create the image
+	// vmaCreateImage(_allocator, &rimg_info, &rimg_allocinfo, &_drawImage.image, &_drawImage.allocation, nullptr);
+
+    // let's create a VkImage ourselves -> drawImage.image
+	VkImageCreateInfo rimg_info = image_create_info(drawImage.imageFormat, drawImageUsages, drawImageExtent);
+    VK_CHECK(vkCreateImage(device, &rimg_info, renderContext->allocationCallbacks, &drawImage.image));
+    // I think there's a way you're supposed to allocate memory and then create the image indirectly.
+    // I'm currently researching how to do that
+
+	//build a image-view for the draw image to use for rendering
+	VkImageViewCreateInfo rview_info = imageview_create_info(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
+
+	VK_CHECK(vkCreateImageView(device, &rview_info, NULL, &drawImage.imageView));
+
+	//add to deletion queues
+	// _mainDeletionQueue.push_function([=]() {
+	// 	vmaDestroyImage(_allocator, _drawImage.image, _drawImage.allocation);
+	// });
+
+    renderContext->drawImage = drawImage;
+    renderContext->drawExtent = drawExtent;
     renderContext->swapchain = swapchain;
     renderContext->swapchainExtent = extent;
 }

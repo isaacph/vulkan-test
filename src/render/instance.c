@@ -185,6 +185,7 @@ void rc_destroy(RenderContext* context) {
         vkDestroySemaphore(context->device, context->frames[i].renderSemaphore, context->allocationCallbacks);
         vkDestroyFence(context->device, context->frames[i].renderFence, context->allocationCallbacks);
     }
+    vkDestroyImageView(context->device, context->drawImage.imageView, context->allocationCallbacks);
     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
         if (context->images[i].swapchainImageView != VK_NULL_HANDLE) {
             vkDestroyImageView(

@@ -79,5 +79,7 @@ void init_device_functions(VkDevice device) {
     check(vkCmdClearColorImage = (PFN_vkCmdClearColorImage)load(device, "vkCmdClearColorImage"));
     check(vkFreeCommandBuffers = (PFN_vkFreeCommandBuffers)load(device, "vkFreeCommandBuffers"));
     check(vkCmdPipelineBarrier2 = (PFN_vkCmdPipelineBarrier2)load(device, "vkCmdPipelineBarrier2"));
+    check(vkCreateImage = (PFN_vkCreateImage)load(device, "vkCreateImage"));
+    check(vkDestroyImage = (PFN_vkDestroyImage)load(device, "vkDestroyImage"));
 }
 

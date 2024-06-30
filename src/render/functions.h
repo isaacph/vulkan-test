@@ -88,6 +88,8 @@ EXTERN PFN_vkDestroyRenderPass vkDestroyRenderPass INIT;
 EXTERN PFN_vkCreateFramebuffer vkCreateFramebuffer INIT;
 EXTERN PFN_vkDestroyFramebuffer vkDestroyFramebuffer INIT;
 EXTERN PFN_vkCreateImageView vkCreateImageView INIT;
+EXTERN PFN_vkCreateImage vkCreateImage INIT;
+EXTERN PFN_vkDestroyImage vkDestroyImage INIT;
 EXTERN PFN_vkDestroyImageView vkDestroyImageView INIT;
 EXTERN PFN_vkGetSwapchainImagesKHR vkGetSwapchainImagesKHR INIT;
 EXTERN PFN_vkCreateFence vkCreateFence INIT;
