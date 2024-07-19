@@ -8,21 +8,14 @@ const char* const ENABLE_DEVICE_EXTENSIONS[] = {
 };
 const size_t ENABLE_DEVICE_EXTENSIONS_COUNT = 1;
 
-void rc_init_device(RenderContext* context) {
-    if (context->surface == VK_NULL_HANDLE) {
+InitDevice rc_init_device(InitDeviceParams params) {
+    if (params.surface == VK_NULL_HANDLE) {
         exception_msg("Surface must be initialized before device can be initialized (reason: used to decide which physical device supports the surface)\n");
     }
-    if (context->physicalDevice != VK_NULL_HANDLE) {
-        exception_msg("Physical device already chosen\n");
-    }
-    if (context->device != VK_NULL_HANDLE) {
-        exception_msg("Device already chosen\n");
-    }
 
-    VkInstance instance = context->instance;
-    VkAllocationCallbacks* allocationCallbacks = context->allocationCallbacks;
-    VkSurfaceKHR surface = context->surface;
-    VkSurfaceFormatKHR surfaceFormat = context->surfaceFormat;
+    VkInstance instance = params.instance;
+    VkSurfaceKHR surface = params.surface;
+    VkSurfaceFormatKHR surfaceFormat = params.surfaceFormat;
     VkPhysicalDevice chosenPhysicalDevice = NULL;
     VkDevice device = NULL;
     VkQueue queue = NULL;
@@ -226,7 +219,7 @@ void rc_init_device(RenderContext* context) {
             .pEnabledFeatures = NULL,
         };
         check(vkCreateDevice(
-            chosenPhysicalDevice, &createInfo, allocationCallbacks, &device));
+            chosenPhysicalDevice, &createInfo, NULL, &device));
         printf("Device initialized\n");
     }
 
@@ -237,36 +230,12 @@ void rc_init_device(RenderContext* context) {
     // get queue
     vkGetDeviceQueue(device, graphicsQueueFamily, 0, &queue);
 
-    // init command pools and buffers for each frame
-    for (uint32_t index = 0; index < RC_SWAPCHAIN_LENGTH; ++index) {
-        VkCommandPool commandPool = VK_NULL_HANDLE;
-        VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-
-        VkCommandPoolCreateInfo commandPoolCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .queueFamilyIndex = graphicsQueueFamily,
-            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-            .pNext = NULL,
-        };
-        check(vkCreateCommandPool(device, &commandPoolCreateInfo, allocationCallbacks, &commandPool));
-
-        VkCommandBufferAllocateInfo cmdAllocInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .pNext = NULL,
-            .commandPool = commandPool,
-            .commandBufferCount = 1,
-            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        };
-        check(vkAllocateCommandBuffers(device, &cmdAllocInfo, &commandBuffer));
-
-        context->frames[index].commandPool = commandPool;
-        context->frames[index].mainCommandBuffer = commandBuffer;
-    }
-
-    context->physicalDevice = chosenPhysicalDevice;
-    context->device = device;
-    context->graphicsQueue = queue;
-    context->graphicsQueueFamily = graphicsQueueFamily;
-
     free(layers);
+
+    return (InitDevice) {
+        .physicalDevice = chosenPhysicalDevice,
+        .device = device,
+        .queue = queue,
+        .graphicsQueueFamily = graphicsQueueFamily,
+    };
 }

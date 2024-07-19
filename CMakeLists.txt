@@ -92,8 +92,9 @@ add_custom_target(
 configure_file(src/config.h.in config.h)
 add_library(Main STATIC
     src/main.c
+    src/winmain.c
     src/backtrace.c
-    src/shader.c
+    #    src/shader.c
     src/util/memory.c
     src/render/device.c
     src/render/functions.c
@@ -114,14 +115,13 @@ if (WIN32)
     target_link_libraries(Main dbghelp legacy_stdio_definitions)
 endif (WIN32)
 
-add_executable(Game src/fake_main.c)
-target_include_directories(Game PRIVATE src)
+add_executable(Game src/main.c)
 target_link_libraries(Game Main)
 # target_compile_definitions(VulkanTest PRIVATE UNICODE _UNICODE)
 # target_include_directories(VulkanTest PRIVATE src)
 
 
-# add_subdirectory(test)
+add_subdirectory(test)
 
 # annoying, reevaluate later
 # if(MSVC)

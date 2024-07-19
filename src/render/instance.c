@@ -28,14 +28,8 @@ const char* const ENABLE_LAYERS[] = {
 const size_t ENABLE_LAYERS_COUNT = 0;
 
 
-RenderContext rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr) {
-
-    // variables we are keeping around
-    uint32_t extensionsCount;
-    VkExtensionProperties* extensions;
-    uint32_t layersCount = 0;
-    VkLayerProperties* layers = NULL; // must be freed
-    VkAllocationCallbacks* allocationCallbacks = VK_NULL_HANDLE;
+InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr) {
+    // variables we are keeping around, the function's output
     VkInstance instance = NULL;
 
     // initialize loader functions
@@ -43,6 +37,11 @@ RenderContext rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAdd
 
     // do preinit checks
     {
+        uint32_t extensionsCount;
+        VkExtensionProperties* extensions;
+        uint32_t layersCount = 0;
+        VkLayerProperties* layers = NULL; // must be freed
+
         // check VK_API_VERSION
         uint32_t instanceVersion;
         check(vkEnumerateInstanceVersion(&instanceVersion));
@@ -102,6 +101,9 @@ RenderContext rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAdd
             }
         }
         printf("All required instance extensions and layers found.\n");
+
+        free(extensions);
+        free(layers);
     }
 
     // initialize vkInstance
@@ -127,49 +129,47 @@ RenderContext rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAdd
             .ppEnabledExtensionNames = ENABLE_EXTENSIONS,
         };
         instance = NULL;
-        check(vkCreateInstance(&instanceCreateInfo, allocationCallbacks, &instance));
+        check(vkCreateInstance(&instanceCreateInfo, NULL, &instance));
         printf("Created instance\n");
 
         // init instance functions
         init_instance_functions(instance);
     }
 
-    RenderContext renderContext = {
-        // make render context for later use
+    // RenderContext renderContext = {
+    //     // make render context for later use
+    //     .instance = instance,
+    //     .physicalDevice = VK_NULL_HANDLE,
+    //     .device = VK_NULL_HANDLE,
+    //     .surface = VK_NULL_HANDLE, // defined by platform-specific code
+    //     .swapchain = VK_NULL_HANDLE,
+    //     .surfaceFormat = {0},
+    //     .swapchainExtent = {0},
+    //     .graphicsQueue = VK_NULL_HANDLE,
+    //     .graphicsQueueFamily = 0,
+    //     .frameNumber = 0,
+    //     .frames = {0},
+    //     .images = {0},
+    // };
+    // FrameData emptyFrame = {
+    //     .commandPool = VK_NULL_HANDLE,
+    //     .mainCommandBuffer = VK_NULL_HANDLE,
+    //     .swapchainSemaphore = VK_NULL_HANDLE,
+    //     .renderSemaphore = VK_NULL_HANDLE,
+    //     .renderFence = VK_NULL_HANDLE,
+    // };
+    // SwapchainImageData emptyImage = {
+    //     .swapchainImage = VK_NULL_HANDLE,
+    //     .swapchainImageView = VK_NULL_HANDLE,
+    // };
+    // for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+    //     renderContext.frames[i] = emptyFrame;
+    //     renderContext.images[i] = emptyImage;
+    // }
+
+    return (InitInstance) {
         .instance = instance,
-        .physicalDevice = VK_NULL_HANDLE,
-        .device = VK_NULL_HANDLE,
-        .surface = VK_NULL_HANDLE, // defined by platform-specific code
-        .allocationCallbacks = allocationCallbacks,
-        .swapchain = VK_NULL_HANDLE,
-        .surfaceFormat = {0},
-        .swapchainExtent = {0},
-        .graphicsQueue = VK_NULL_HANDLE,
-        .graphicsQueueFamily = 0,
-        .frameNumber = 0,
-        .frames = {0},
-        .images = {0},
     };
-    FrameData emptyFrame = {
-        .commandPool = VK_NULL_HANDLE,
-        .mainCommandBuffer = VK_NULL_HANDLE,
-        .swapchainSemaphore = VK_NULL_HANDLE,
-        .renderSemaphore = VK_NULL_HANDLE,
-        .renderFence = VK_NULL_HANDLE,
-    };
-    SwapchainImageData emptyImage = {
-        .swapchainImage = VK_NULL_HANDLE,
-        .swapchainImageView = VK_NULL_HANDLE,
-    };
-    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
-        renderContext.frames[i] = emptyFrame;
-        renderContext.images[i] = emptyImage;
-    }
-
-    free(extensions);
-    free(layers);
-
-    return renderContext;
 }
 
 void rc_destroy(RenderContext* context) {
@@ -181,38 +181,38 @@ void rc_destroy(RenderContext* context) {
     }
     printf("Destroying sync primitives");
     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
-        vkDestroySemaphore(context->device, context->frames[i].swapchainSemaphore, context->allocationCallbacks);
-        vkDestroySemaphore(context->device, context->frames[i].renderSemaphore, context->allocationCallbacks);
-        vkDestroyFence(context->device, context->frames[i].renderFence, context->allocationCallbacks);
+        vkDestroySemaphore(context->device, context->frames[i].swapchainSemaphore, NULL);
+        vkDestroySemaphore(context->device, context->frames[i].renderSemaphore, NULL);
+        vkDestroyFence(context->device, context->frames[i].renderFence, NULL);
     }
-    vkDestroyImageView(context->device, context->drawImage.imageView, context->allocationCallbacks);
+    vkDestroyImageView(context->device, context->drawImage.imageView, NULL);
     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
         if (context->images[i].swapchainImageView != VK_NULL_HANDLE) {
             vkDestroyImageView(
                 context->device,
                 context->images[i].swapchainImageView,
-                context->allocationCallbacks);
+                NULL);
             // it doesn't seem like we use framebuffers for this version?
             // vkDestroyFramebuffer(
             //     context->device,
             //     context->framebuffers[i],
-            //     context->allocationCallbacks);
+            //     NULL);
         }
     }
     vkDestroySwapchainKHR(
             context->device,
             context->swapchain,
-            context->allocationCallbacks);
+            NULL);
     vkDestroySurfaceKHR(
             context->instance,
             context->surface,
-            context->allocationCallbacks);
+            NULL);
     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
         if (context->images[i].swapchainImageView != VK_NULL_HANDLE) {
             vkFreeCommandBuffers(context->device, context->frames[i].commandPool, 1, &context->frames[i].mainCommandBuffer);
-            vkDestroyCommandPool(context->device, context->frames[i].commandPool, context->allocationCallbacks);
+            vkDestroyCommandPool(context->device, context->frames[i].commandPool, NULL);
         }
     }
-    vkDestroyDevice(context->device, context->allocationCallbacks);
-    vkDestroyInstance(context->instance, context->allocationCallbacks);
+    vkDestroyDevice(context->device, NULL);
+    vkDestroyInstance(context->instance, NULL);
 }

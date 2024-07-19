@@ -21,3 +21,10 @@ Trying a Vulkan test with msys2's mingw-w64 target on Windows, using meson as a 
 ### Runtime dependencies
 
 * vulkan-1.dll
+
+
+
+### Notes
+
+https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html
+

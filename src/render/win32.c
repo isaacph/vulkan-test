@@ -30,8 +30,42 @@ RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
         }
     }
 
+    RenderContext context = {
+        // make render context for later use
+        .instance = VK_NULL_HANDLE,
+        .physicalDevice = VK_NULL_HANDLE,
+        .device = VK_NULL_HANDLE,
+        .surface = VK_NULL_HANDLE, // defined by platform-specific code
+        .swapchain = VK_NULL_HANDLE,
+        .surfaceFormat = {0},
+        .swapchainExtent = {0},
+        .graphicsQueue = VK_NULL_HANDLE,
+        .graphicsQueueFamily = 0,
+        .frameNumber = 0,
+        .frames = {0},
+        .images = {0},
+    };
+    FrameData emptyFrame = {
+        .commandPool = VK_NULL_HANDLE,
+        .mainCommandBuffer = VK_NULL_HANDLE,
+        .swapchainSemaphore = VK_NULL_HANDLE,
+        .renderSemaphore = VK_NULL_HANDLE,
+        .renderFence = VK_NULL_HANDLE,
+    };
+    SwapchainImageData emptyImage = {
+        .swapchainImage = VK_NULL_HANDLE,
+        .swapchainImageView = VK_NULL_HANDLE,
+    };
+    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+        context.frames[i] = emptyFrame;
+        context.images[i] = emptyImage;
+    }
+
     // call instance init
-    RenderContext context = rc_init_instance(fp_vkGetInstanceProcAddr);
+    {
+        InitInstance initInstance = rc_init_instance(fp_vkGetInstanceProcAddr);
+        context.instance = initInstance.instance;
+    }
 
     // make win32 surface
     {
@@ -42,11 +76,22 @@ RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
             .hinstance = hInstance,
             .hwnd = hwnd,
         };
-        check(vkCreateWin32SurfaceKHR(context.instance, &createInfo, context.allocationCallbacks, &context.surface));
+        check(vkCreateWin32SurfaceKHR(context.instance, &createInfo, NULL, &context.surface));
     }
     printf("Created win32 surface\n");
 
-    rc_init_device(&context);
+    // make device
+    {
+        InitDevice initDevice = rc_init_device((InitDeviceParams) {
+            .instance = context.instance,
+            .surface = context.surface,
+            .surfaceFormat = context.surfaceFormat,
+        });
+        context.physicalDevice = initDevice.physicalDevice;
+        context.device = initDevice.device;
+        context.graphicsQueue = initDevice.queue;
+        context.graphicsQueueFamily = initDevice.graphicsQueueFamily;
+    }
 
     // set up the swapchain
     rc_configure_swapchain(&context);

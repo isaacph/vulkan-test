@@ -1,6 +1,6 @@
 #include <stdbool.h>
 #include "context.h"
-#include "render_functions.h"
+#include "functions.h"
 #include <math.h>
 #include <vulkan/vulkan_core.h>
 
@@ -20,15 +20,15 @@ void rc_init_loop(RenderContext* context) {
             .pNext = NULL,
             .flags = VK_FENCE_CREATE_SIGNALED_BIT,
         };
-        check(vkCreateFence(device, &fenceCreateInfo, context->allocationCallbacks, &renderFence));
+        check(vkCreateFence(device, &fenceCreateInfo, NULL, &renderFence));
 
         VkSemaphoreCreateInfo semaphoreCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
         };
-        check(vkCreateSemaphore(device, &semaphoreCreateInfo, context->allocationCallbacks, &swapchainSemaphore));
-        check(vkCreateSemaphore(device, &semaphoreCreateInfo, context->allocationCallbacks, &renderSemaphore));
+        check(vkCreateSemaphore(device, &semaphoreCreateInfo, NULL, &swapchainSemaphore));
+        check(vkCreateSemaphore(device, &semaphoreCreateInfo, NULL, &renderSemaphore));
 
         context->frames[i].renderFence = renderFence;
         context->frames[i].swapchainSemaphore = swapchainSemaphore;

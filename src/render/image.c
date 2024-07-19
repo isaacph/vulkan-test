@@ -40,7 +40,7 @@ void rc_transition_image(VkCommandBuffer cmd, VkImage image, VkImageLayout curre
 }
 
 VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent) {
-    VkImageCreateInfo info = {};
+    VkImageCreateInfo info = { 0 };
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     info.pNext = NULL;
 
@@ -63,7 +63,7 @@ VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usageFlag
 
 VkImageViewCreateInfo imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags) {
     // build an image view for the depth image to use for rendering
-    VkImageViewCreateInfo info = {};
+    VkImageViewCreateInfo info = { 0 };
     info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     info.pNext = NULL;
 

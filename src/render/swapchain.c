@@ -16,6 +16,33 @@ void rc_configure_swapchain(RenderContext* renderContext) {
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     VkSurfaceKHR surface = renderContext->surface;
     VkSurfaceFormatKHR surfaceFormat = {0};
+    uint32_t graphicsQueueFamily = renderContext->graphicsQueueFamily;
+
+    // init command pools and buffers for each frame
+    for (uint32_t index = 0; index < RC_SWAPCHAIN_LENGTH; ++index) {
+        VkCommandPool commandPool = VK_NULL_HANDLE;
+        VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+
+        VkCommandPoolCreateInfo commandPoolCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            .queueFamilyIndex = graphicsQueueFamily,
+            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+            .pNext = NULL,
+        };
+        check(vkCreateCommandPool(device, &commandPoolCreateInfo, NULL, &commandPool));
+
+        VkCommandBufferAllocateInfo cmdAllocInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .pNext = NULL,
+            .commandPool = commandPool,
+            .commandBufferCount = 1,
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        };
+        check(vkAllocateCommandBuffers(device, &cmdAllocInfo, &commandBuffer));
+
+        renderContext->frames[index].commandPool = commandPool;
+        renderContext->frames[index].mainCommandBuffer = commandBuffer;
+    }
 
     // get formats, choose the basic one lol
     bool chosen = false;
@@ -62,7 +89,7 @@ void rc_init_swapchain(RenderContext* renderContext, uint32_t width, uint32_t he
         .image = VK_NULL_HANDLE,
         .imageView = VK_NULL_HANDLE,
         .imageExtent = (VkExtent3D) { 0 },
-        .imageFormat = NULL,
+        .imageFormat = VK_FORMAT_UNDEFINED,
     };
     VkExtent2D drawExtent = { 0 };
 
@@ -172,10 +199,10 @@ void rc_init_swapchain(RenderContext* renderContext, uint32_t width, uint32_t he
         .presentMode = VK_PRESENT_MODE_FIFO_KHR,
         .oldSwapchain = oldSwapchain,
     };
-    vkCreateSwapchainKHR(device, &createInfo, renderContext->allocationCallbacks, &swapchain);
+    vkCreateSwapchainKHR(device, &createInfo, NULL, &swapchain);
     // clean up old swapchain
     if (oldSwapchain != VK_NULL_HANDLE) {
-        vkDestroySwapchainKHR(device, oldSwapchain, renderContext->allocationCallbacks);
+        vkDestroySwapchainKHR(device, oldSwapchain, NULL);
     }
 
     // get images for swapchain
@@ -199,7 +226,7 @@ void rc_init_swapchain(RenderContext* renderContext, uint32_t width, uint32_t he
     // create image views for swapchain
     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
         if (renderContext->images[i].swapchainImageView != VK_NULL_HANDLE) {
-            vkDestroyImageView(device, renderContext->images[i].swapchainImageView, renderContext->allocationCallbacks);
+            vkDestroyImageView(device, renderContext->images[i].swapchainImageView, NULL);
             renderContext->images[i].swapchainImageView = VK_NULL_HANDLE;
         }
         VkImageViewCreateInfo imageViewCreateInfo = {
@@ -259,16 +286,16 @@ void rc_init_swapchain(RenderContext* renderContext, uint32_t width, uint32_t he
 	// //allocate and create the image
 	// vmaCreateImage(_allocator, &rimg_info, &rimg_allocinfo, &_drawImage.image, &_drawImage.allocation, nullptr);
 
-    // let's create a VkImage ourselves -> drawImage.image
-	VkImageCreateInfo rimg_info = image_create_info(drawImage.imageFormat, drawImageUsages, drawImageExtent);
-    VK_CHECK(vkCreateImage(device, &rimg_info, renderContext->allocationCallbacks, &drawImage.image));
-    // I think there's a way you're supposed to allocate memory and then create the image indirectly.
-    // I'm currently researching how to do that
+    // // let's create a VkImage ourselves -> drawImage.image
+	// VkImageCreateInfo rimg_info = image_create_info(drawImage.imageFormat, drawImageUsages, drawImageExtent);
+    // VK_CHECK(vkCreateImage(device, &rimg_info, NULL, &drawImage.image));
+    // // I think there's a way you're supposed to allocate memory and then create the image indirectly.
+    // // I'm currently researching how to do that
 
-	//build a image-view for the draw image to use for rendering
-	VkImageViewCreateInfo rview_info = imageview_create_info(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
+	// //build a image-view for the draw image to use for rendering
+	// VkImageViewCreateInfo rview_info = imageview_create_info(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
 
-	VK_CHECK(vkCreateImageView(device, &rview_info, NULL, &drawImage.imageView));
+	// VK_CHECK(vkCreateImageView(device, &rview_info, NULL, &drawImage.imageView));
 
 	//add to deletion queues
 	// _mainDeletionQueue.push_function([=]() {
@@ -279,6 +306,10 @@ void rc_init_swapchain(RenderContext* renderContext, uint32_t width, uint32_t he
     renderContext->drawExtent = drawExtent;
     renderContext->swapchain = swapchain;
     renderContext->swapchainExtent = extent;
+
+
+    // exercise: let's create some device memory, map it, write to it, flush it, invalidate it, then unmap it, all just because
+    // start with checking for capabilities for host visible
 }
 
 void rc_size_change(RenderContext* context, uint32_t width, uint32_t height) {

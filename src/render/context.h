@@ -28,7 +28,6 @@ typedef struct RenderContext {
     VkPhysicalDevice physicalDevice;
     VkDevice device;
     VkSurfaceKHR surface;
-    VkAllocationCallbacks* allocationCallbacks;
     VkSwapchainKHR swapchain;
     VkSurfaceFormatKHR surfaceFormat;
     VkExtent2D swapchainExtent;
@@ -42,7 +41,24 @@ typedef struct RenderContext {
     VkExtent2D drawExtent;
 } RenderContext;
 
-RenderContext rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr);
+typedef struct InitInstance {
+    VkInstance instance;
+} InitInstance;
+InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr);
+
+typedef struct InitDeviceParams {
+    VkInstance instance;
+    VkSurfaceKHR surface;
+    VkSurfaceFormatKHR surfaceFormat;
+} InitDeviceParams;
+typedef struct InitDevice {
+    VkPhysicalDevice physicalDevice;
+    VkDevice device;
+    VkQueue queue;
+    uint32_t graphicsQueueFamily;
+} InitDevice;
+InitDevice rc_init_device(InitDeviceParams params);
+
 void rc_swapchain_configure(RenderContext* renderContext);
 void rc_init_swapchain(RenderContext* renderContext, uint32_t width, uint32_t height);
 void rc_destroy(RenderContext* renderContext);
