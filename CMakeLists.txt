@@ -93,7 +93,7 @@ configure_file(src/config.h.in config.h)
 add_library(Main STATIC
     src/main.c
     src/winmain.c
-    src/backtrace.c
+    src/util/backtrace.c
     #    src/shader.c
     src/util/memory.c
     src/render/device.c
@@ -104,6 +104,7 @@ add_library(Main STATIC
     src/render/swapchain.c
     src/render/util.c
     src/render/win32.c
+    src/util/stack.c
     )
 add_dependencies(Main Shaders)
 target_include_directories(Main PUBLIC src)

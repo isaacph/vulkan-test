@@ -1,6 +1,7 @@
 #include "context.h"
 #include "util.h"
 #include <stdbool.h>
+#include "../util/memory.h"
 
 // must be called prior to calling rc_init_swapchain
 void rc_configure_swapchain(RenderContext* renderContext) {

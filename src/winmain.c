@@ -8,7 +8,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include "render/context.h"
-#include "backtrace.h"
+#include "util/backtrace.h"
 
 // making a bunch of modes
 // all modes will have the actual game in a separate process

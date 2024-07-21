@@ -2,6 +2,14 @@
 #include <assert.h>
 #include <stdlib.h>
 
+void* checkMalloc(void* ptr) {
+    if (ptr == NULL) {
+        const char* msg = "Malloc returned NULL, out of memory!";
+        exception_msg(ptr);
+    }
+    return ptr;
+}
+
 StaticCache StaticCache_init(int size) {
     assert(size > 0);
     size_t x = sizeof(CleanUpEntry) * size;

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include "util.h"
 #include <vulkan/vulkan_core.h>
-#include "../backtrace.h"
+#include "../util/backtrace.h"
 #define VK_API_VERSION_BUFFER_PRETTY_PRINT_LEN 64
 #define RENDER_MAX_ERR_MSG_LENGTH 128
 
@@ -57,9 +57,6 @@ void check(VkResult res) {
     }
 }
 
-void checkMalloc(void* ptr) {
-    if (ptr == NULL) {
-        const char* msg = "Malloc returned NULL, out of memory!";
-        exception_msg(ptr);
-    }
+bool validate_unicode(const char* unicode) {
+    return false;
 }

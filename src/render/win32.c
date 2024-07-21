@@ -1,34 +1,100 @@
+// windows-specific init
+#if defined(_WIN32)
 #include "context.h"
 #include "util.h"
 #include <stdbool.h>
-
-// windows-specific init
-#if defined(_WIN32)
+#include "win32.h"
 #include <windows.h>
+
+static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lparam);
+
+// convert to and from wchar, malloc-ing a resource for the result
+static void unicode_to_wchar(const char* unicode, int len, wchar_t* out, int* out_len);
+static void wchar_to_unicode(const wchar_t* wchar, int len, const char* out, int* out_len);
+
+bool createWindow(WindowHandle* handle, const char* title, int width, int height) {
+    *handle = (WindowHandle) {
+        .hInstance = NULL,
+        .hwnd = NULL,
+    };
+
+    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    if (FAILED(hr)) {
+        printf("Error initializing COM library: %ld", hr);
+        return 1;
+    }
+
+    init_exceptions(false);
+
+    HINSTANCE hInstance = GetModuleHandle(NULL);
+
+    // Register the window class.
+    const wchar_t CLASS_NAME[]  = L"Sample Window Class";
+    
+    WNDCLASSW wc = {0};
+    wc.lpfnWndProc = WindowProc;
+    wc.hInstance = hInstance;
+    wc.lpszClassName = CLASS_NAME;
+    wc.hIcon = LoadIcon(0, IDI_APPLICATION);
+    wc.hCursor = LoadCursor(0, IDC_ARROW);
+    wc.hbrBackground = GetStockObject(WHITE_BRUSH);
+    RegisterClassW(&wc);
+
+    // Create the window.
+    HWND hwnd = CreateWindowEx(
+        0,                              // Optional window styles.
+        CLASS_NAME,                     // Window class
+        L"Learn to Program Windows",    // Window text
+        WS_OVERLAPPEDWINDOW,            // Window style
+
+        // Size and position
+        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+
+        NULL,       // Parent window    
+        NULL,       // Menu
+        hInstance,  // Instance handle
+        NULL        // Additional application data
+        );
+
+    if (hwnd == NULL)
+    {
+        DWORD lastError = GetLastError();
+        printf("last error: %lu\n", lastError);
+        exception_msg("Invalid window handle");
+        return 0;
+    }
+
+    ShowWindow(hwnd, SW_SHOW);
+    return false;
+}
+
+PFN_vkGetInstanceProcAddr rc_proc_addr() {
+    PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr = NULL;
+
+    // https://github.com/charles-lunarg/vk-bootstrap/blob/main/src/VkBootstrap.cpp#L61
+    // https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya
+    HMODULE library;
+    library = LoadLibraryW(L"vulkan-1.dll");
+    if (library == NULL) {
+        DWORD error = GetLastError();
+        printf("Windows error: %lu\n", error);
+        exception_msg("vulkan-1.dll was not found");
+    }
+
+    fp_vkGetInstanceProcAddr = NULL;
+    fp_vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(library, "vkGetInstanceProcAddr");
+    if (fp_vkGetInstanceProcAddr == NULL) exception();
+    printf("Found loader func: %p\n", fp_vkGetInstanceProcAddr);
+
+    // sanity check
+    if (fp_vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkEnumerateInstanceVersion") == NULL) {
+        exception_msg("Invalid vulkan-1.dll");
+    }
+    return fp_vkGetInstanceProcAddr;
+}
 RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
     // load the Vulkan loader
-    PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr;
-    {
-        // https://github.com/charles-lunarg/vk-bootstrap/blob/main/src/VkBootstrap.cpp#L61
-        // https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya
-        HMODULE library;
-        library = LoadLibraryW(L"vulkan-1.dll");
-        if (library == NULL) {
-            DWORD error = GetLastError();
-            printf("Windows error: %lu\n", error);
-            exception_msg("vulkan-1.dll was not found");
-        }
-
-        fp_vkGetInstanceProcAddr = NULL;
-        fp_vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(library, "vkGetInstanceProcAddr");
-        if (fp_vkGetInstanceProcAddr == NULL) exception();
-        printf("Found loader func: %p\n", fp_vkGetInstanceProcAddr);
-
-        // sanity check
-        if (fp_vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkEnumerateInstanceVersion") == NULL) {
-            exception_msg("Invalid vulkan-1.dll");
-        }
-    }
+    PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr = rc_proc_addr();
 
     RenderContext context = {
         // make render context for later use
@@ -109,4 +175,10 @@ RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
 
     return context;
 }
+
+static void unicode_to_wchar(const char* unicode, int len, wchar_t* out, int* out_len) {
+}
+static void wchar_to_unicode(const wchar_t* wchar, int len, const char* out, int* out_len) {
+}
+
 #endif

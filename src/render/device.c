@@ -2,6 +2,7 @@
 #include "util.h"
 #include <stdbool.h>
 #include <vulkan/vulkan_core.h>
+#include "util/memory.h"
 
 const char* const ENABLE_DEVICE_EXTENSIONS[] = {
     "VK_KHR_swapchain",

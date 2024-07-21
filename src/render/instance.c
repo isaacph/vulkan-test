@@ -2,14 +2,7 @@
 #include "context.h"
 #include "util.h"
 #include <stdbool.h>
-
-// I should implement my own memory management
-// static void checkMalloc(void* ptr) {
-//     if (ptr == NULL) {
-//         const char* msg = "Malloc returned NULL, out of memory!";
-//         exception_msg(ptr);
-//     }
-// }
+#include "util/memory.h"
 
 const char* const ENABLE_EXTENSIONS[] = {
     "VK_KHR_surface", // rendering to monitors

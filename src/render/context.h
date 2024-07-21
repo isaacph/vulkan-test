@@ -2,6 +2,10 @@
 #define RENDER_CONTEXT_H_INCLUDED
 #include "functions.h"
 #define RC_SWAPCHAIN_LENGTH 3
+#include <stdbool.h>
+#include "win32.h"
+
+int createWindow(WindowHandle* handle, const char* title, int width, int height);
 
 typedef struct FrameData {
     VkCommandPool commandPool;
@@ -41,6 +45,9 @@ typedef struct RenderContext {
     VkExtent2D drawExtent;
 } RenderContext;
 
+// implementation must be platform-specific
+PFN_vkGetInstanceProcAddr rc_proc_addr();
+
 typedef struct InitInstance {
     VkInstance instance;
 } InitInstance;
@@ -58,6 +65,7 @@ typedef struct InitDevice {
     uint32_t graphicsQueueFamily;
 } InitDevice;
 InitDevice rc_init_device(InitDeviceParams params);
+
 
 void rc_swapchain_configure(RenderContext* renderContext);
 void rc_init_swapchain(RenderContext* renderContext, uint32_t width, uint32_t height);
