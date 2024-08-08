@@ -21,7 +21,12 @@ const char* const ENABLE_LAYERS[] = {
 const size_t ENABLE_LAYERS_COUNT = 0;
 
 
-InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr) {
+void cleanup_instance(void* user_ptr) {
+    printf("Instance cleaned up\n");
+    vkDestroyInstance(*((VkInstance*) user_ptr), NULL);
+}
+
+InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr, bool debug, StaticCache* cleanup) {
     // variables we are keeping around, the function's output
     VkInstance instance = NULL;
 
@@ -40,7 +45,7 @@ InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr
         check(vkEnumerateInstanceVersion(&instanceVersion));
         char vk_api_version[64];
         calc_VK_API_VERSION(instanceVersion, vk_api_version, 64);
-        printf("Vulkan instance version %s\n", vk_api_version);
+        if (debug) printf("Vulkan instance version %s\n", vk_api_version);
 
         // get VkExtensionProperties
         extensionsCount = 0;
@@ -49,7 +54,7 @@ InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr
         extensions = malloc(sizeof(VkExtensionProperties) * extensionsCount);
         if (extensions == NULL) exception();
         check(vkEnumerateInstanceExtensionProperties(NULL, &extensionsCount, extensions));
-        print_VkExtensionProperties(extensionsCount, extensions);
+        if (debug) print_VkExtensionProperties(extensionsCount, extensions);
         // free(extensions);
 
         // get VkLayerProperties
@@ -59,7 +64,7 @@ InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr
         layers = malloc(sizeof(VkLayerProperties) * layersCount);
         if (layers == NULL) exception();
         check(vkEnumerateInstanceLayerProperties(&layersCount, layers));
-        print_VkLayerProperties(layersCount, layers);
+        if (debug) print_VkLayerProperties(layersCount, layers);
         // free(layers);
 
         // check we have the required extensions
@@ -93,7 +98,7 @@ InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr
                 exception_msg(msg);
             }
         }
-        printf("All required instance extensions and layers found.\n");
+        if (debug) printf("All required instance extensions and layers found.\n");
 
         free(extensions);
         free(layers);
@@ -159,6 +164,8 @@ InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr
     //     renderContext.frames[i] = emptyFrame;
     //     renderContext.images[i] = emptyImage;
     // }
+
+    StaticCache_add(cleanup, cleanup_instance, (void*) &instance);
 
     return (InitInstance) {
         .instance = instance,

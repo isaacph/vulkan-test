@@ -96,6 +96,7 @@ add_library(Main STATIC
     src/util/backtrace.c
     #    src/shader.c
     src/util/memory.c
+    src/util/utf8.c
     src/render/device.c
     src/render/functions.c
     src/render/image.c

@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "win32.h"
 #include <windows.h>
+#include <stdio.h>
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lparam);
 
@@ -12,19 +13,37 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 static void unicode_to_wchar(const char* unicode, int len, wchar_t* out, int* out_len);
 static void wchar_to_unicode(const wchar_t* wchar, int len, const char* out, int* out_len);
 
-bool createWindow(WindowHandle* handle, const char* title, int width, int height) {
-    *handle = (WindowHandle) {
-        .hInstance = NULL,
-        .hwnd = NULL,
-    };
+PFN_vkGetInstanceProcAddr rc_proc_addr() {
+    PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr = NULL;
 
-    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-    if (FAILED(hr)) {
-        printf("Error initializing COM library: %ld", hr);
-        return 1;
+    // https://github.com/charles-lunarg/vk-bootstrap/blob/main/src/VkBootstrap.cpp#L61
+    // https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya
+    HMODULE library;
+    library = LoadLibraryW(L"vulkan-1.dll");
+    if (library == NULL) {
+        DWORD error = GetLastError();
+        printf("Windows error: %lu\n", error);
+        exception_msg("vulkan-1.dll was not found");
     }
 
-    init_exceptions(false);
+    fp_vkGetInstanceProcAddr = NULL;
+    fp_vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(library, "vkGetInstanceProcAddr");
+    if (fp_vkGetInstanceProcAddr == NULL) exception();
+    printf("Found loader func: %p\n", fp_vkGetInstanceProcAddr);
+
+    // sanity check
+    if (fp_vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkEnumerateInstanceVersion") == NULL) {
+        exception_msg("Invalid vulkan-1.dll");
+    }
+    return fp_vkGetInstanceProcAddr;
+}
+
+InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
+    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    if (FAILED(hr)) {
+        fprintf(stderr, "Error initializing COM library: %ld", hr);
+        exception();
+    }
 
     HINSTANCE hInstance = GetModuleHandle(NULL);
 
@@ -61,40 +80,33 @@ bool createWindow(WindowHandle* handle, const char* title, int width, int height
         DWORD lastError = GetLastError();
         printf("last error: %lu\n", lastError);
         exception_msg("Invalid window handle");
-        return 0;
     }
 
     ShowWindow(hwnd, SW_SHOW);
-    return false;
+
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    VkWin32SurfaceCreateInfoKHR createInfo = {
+        .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+        .pNext = NULL,
+        .flags = 0,
+        .hinstance = hInstance,
+        .hwnd = hwnd,
+    };
+    check(vkCreateWin32SurfaceKHR(params.instance, &createInfo, NULL, &surface));
+
+    return (InitSurface) {
+        .windowHandle = (WindowHandle) {
+            .hInstance = NULL,
+            .hwnd = NULL,
+        },
+        .surface = surface,
+    };
 }
 
-PFN_vkGetInstanceProcAddr rc_proc_addr() {
-    PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr = NULL;
-
-    // https://github.com/charles-lunarg/vk-bootstrap/blob/main/src/VkBootstrap.cpp#L61
-    // https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya
-    HMODULE library;
-    library = LoadLibraryW(L"vulkan-1.dll");
-    if (library == NULL) {
-        DWORD error = GetLastError();
-        printf("Windows error: %lu\n", error);
-        exception_msg("vulkan-1.dll was not found");
-    }
-
-    fp_vkGetInstanceProcAddr = NULL;
-    fp_vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(library, "vkGetInstanceProcAddr");
-    if (fp_vkGetInstanceProcAddr == NULL) exception();
-    printf("Found loader func: %p\n", fp_vkGetInstanceProcAddr);
-
-    // sanity check
-    if (fp_vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkEnumerateInstanceVersion") == NULL) {
-        exception_msg("Invalid vulkan-1.dll");
-    }
-    return fp_vkGetInstanceProcAddr;
-}
 RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
     // load the Vulkan loader
     PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr = rc_proc_addr();
+    StaticCache cleanup = StaticCache_init(1000);
 
     RenderContext context = {
         // make render context for later use
@@ -129,7 +141,7 @@ RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
 
     // call instance init
     {
-        InitInstance initInstance = rc_init_instance(fp_vkGetInstanceProcAddr);
+        InitInstance initInstance = rc_init_instance(fp_vkGetInstanceProcAddr, true, &cleanup);
         context.instance = initInstance.instance;
     }
 
@@ -176,9 +188,44 @@ RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
     return context;
 }
 
-static void unicode_to_wchar(const char* unicode, int len, wchar_t* out, int* out_len) {
+static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    // printf("Event: %u\n", uMsg);
+    RECT rect;
+    switch (uMsg) {
+    case WM_SYSCOMMAND:
+        // printf("Sys: %Iu\n", wParam);
+        if (wParam == SC_MINIMIZE) {
+            // disableDraw = true;
+        } else if (wParam == SC_RESTORE) {
+            // disableDraw = false;
+        }
+        return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        // running = false;
+        // disableDraw = true;
+        return 0;
+    case WM_LBUTTONDOWN:
+        printf("Received left mouse button\n");
+        return 0;
+    case WM_PAINT:
+        ValidateRect(hwnd, NULL);
+        return 0;
+    case WM_SIZE:
+        // if (wParam != SIZE_MINIMIZED && (resizeMode || wParam == SIZE_MAXIMIZED)) {
+        //     resetDrawBounds = true;
+        // }
+        return 0;
+    case WM_ENTERSIZEMOVE:
+        // resizeMode = true;
+        return 0;
+    case WM_EXITSIZEMOVE:
+        // resizeMode = true;
+        return 0;
+    }
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
-static void wchar_to_unicode(const wchar_t* wchar, int len, const char* out, int* out_len) {
-}
+
+
 
 #endif

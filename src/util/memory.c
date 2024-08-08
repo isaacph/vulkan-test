@@ -39,10 +39,12 @@ void StaticCache_clean_up(StaticCache* cache) {
     assert(cache->index >= 0);
     assert(cache->index <= cache->size);
 
-    for (int i = 0; i < cache->index; ++i) {
+    for (int i = cache->index - 1; i >= 0; --i) {
         CleanUpEntry entry = cache->entries[i];
         entry.callback(entry.user_ptr);
     }
     free(cache->entries);
     cache->index = -1;
+    cache->size = 0;
+    cache->entries = NULL;
 }

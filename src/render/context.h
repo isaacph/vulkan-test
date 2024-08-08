@@ -2,10 +2,9 @@
 #define RENDER_CONTEXT_H_INCLUDED
 #include "functions.h"
 #define RC_SWAPCHAIN_LENGTH 3
+#include "util/memory.h"
 #include <stdbool.h>
 #include "win32.h"
-
-int createWindow(WindowHandle* handle, const char* title, int width, int height);
 
 typedef struct FrameData {
     VkCommandPool commandPool;
@@ -51,7 +50,22 @@ PFN_vkGetInstanceProcAddr rc_proc_addr();
 typedef struct InitInstance {
     VkInstance instance;
 } InitInstance;
-InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr);
+InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr, bool debug, StaticCache* cleanup);
+
+// implementation and WindowHandle are per OS
+typedef void (*OnWindowFunction)(void*);
+typedef struct InitSurfaceParams {
+    VkInstance instance;
+    const char* title;
+    int width;
+    int height;
+} InitSurfaceParams;
+typedef struct InitSurface {
+    WindowHandle windowHandle;
+    VkSurfaceKHR surface;
+    void* user;
+} InitSurface;
+InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup);
 
 typedef struct InitDeviceParams {
     VkInstance instance;
