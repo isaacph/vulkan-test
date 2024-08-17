@@ -19,8 +19,6 @@ static uint8_t const INVALID_UTF8_LEN = 3;
 typedef uint32_t utf8_t;
 typedef uint32_t codepoint_t;
 
-static const char test[] = "こ\343\201\223\0";
-
 // validation functions
 bool utf8_is_valid_at(const char* utf8, uint8_t length) {
     if (length == 0) {
@@ -44,17 +42,17 @@ bool utf8_is_valid_at(const char* utf8, uint8_t length) {
         }
         break;
     case 2:
-        if ((encoding & 0xE0C0) != 0xC080) {
+        if ((encoding & 0xE0C0) != 0xC080 || (encoding & 0x1E00) == 0x0000) {
             return false;
         }
         break;
     case 3:
-        if ((encoding & 0xF0C0C0) != 0xE08080) {
+        if ((encoding & 0xF0C0C0) != 0xE08080 || (encoding & 0x0F2000) == 0x000000) {
             return false;
         }
         break;
     case 4:
-        if ((encoding & 0xF8C0C0C0) != 0xF0808080) {
+        if ((encoding & 0xF8C0C0C0) != 0xF0808080 || (encoding & 0x07300000) == 0x00000000) {
             return false;
         }
         break;
@@ -107,6 +105,14 @@ void assert_utf8_is_valid_at(const char* utf8, int length) {
             exception_msg(msg);
             free(msg); // we never get here
         }
+        if ((encoding & 0x1E00) == 0) {
+            char* msg = malloc(1000);
+            if (!msg) exception_msg("Error while erroring, malloc, invalid UTF-8 encoding, overlong 2-width");
+            snprintf(msg, 1000, "UTF-8 is not valid. Overlong 2-width encoding %x",
+                    encoding & 0xffff);
+            exception_msg(msg);
+            free(msg); // we never get here
+        }
         break;
     case 3:
         if ((encoding & 0xF0C0C0) != 0xE08080) {
@@ -117,6 +123,14 @@ void assert_utf8_is_valid_at(const char* utf8, int length) {
             exception_msg(msg);
             free(msg); // we never get here
         }
+        if ((encoding & 0x0F2000) == 0) {
+            char* msg = malloc(1000);
+            if (!msg) exception_msg("Error while erroring, malloc, invalid UTF-8 encoding, overlong 3-width");
+            snprintf(msg, 1000, "UTF-8 is not valid. Overlong 3-width encoding %x",
+                    encoding & 0xffffff);
+            exception_msg(msg);
+            free(msg); // we never get here
+        }
         break;
     case 4:
         if ((encoding & 0xF8C0C0C0) != 0xF0808080) {
@@ -124,6 +138,14 @@ void assert_utf8_is_valid_at(const char* utf8, int length) {
             if (!msg) exception_msg("Error while erroring, malloc, invalid UTF-8 encoding, char length 4");
             snprintf(msg, 1000, "UTF-8 is not valid. Invalid bytes %x (%x & 0xF8C0C0C0 should be 0xF0808080)",
                     encoding, encoding);
+            exception_msg(msg);
+            free(msg); // we never get here
+        }
+        if ((encoding & 0x07300000) == 0) {
+            char* msg = malloc(1000);
+            if (!msg) exception_msg("Error while erroring, malloc, invalid UTF-8 encoding, overlong 4-width");
+            snprintf(msg, 1000, "UTF-8 is not valid. Overlong 4-width encoding %x",
+                    encoding & 0xffffff);
             exception_msg(msg);
             free(msg); // we never get here
         }
@@ -141,7 +163,6 @@ void assert_utf8_is_valid_at(const char* utf8, int length) {
     }
 #endif
 }
-
 
 bool utf8_is_valid(const char* utf8, int utf8_len) {
     int index = 0;
@@ -171,12 +192,16 @@ void assert_utf8_is_valid(const char* utf8, int len) {
             free(msg); // we never get here
         }
         assert_utf8_is_valid_at(utf8 + index, length);
-        index += length; // to next byte
+        index += length;
     }
 #endif
 }
 
-// you should advance utf8 by 1 if invalid, else by length
+// remaining space is the amount of space left in the buffer to read from, while length is the amount of space
+// the current character encoding requires. these are parameters to "replace_invalid" functions because in the case
+// that there is not enough space left to read the rest of an encoding we want to output an invalid character and I decided
+// to let that be handled by the "at" functions instead of the wrapper.
+// output: you should advance utf8 by 1 if invalid, else by length
 bool utf8_replace_invalid_at(const char* utf8, int length, int remaining_space, char* out, int out_buf_len, uint8_t* bytes_written) {
     bool invalid = false;
     const char* write_this;
@@ -187,7 +212,6 @@ bool utf8_replace_invalid_at(const char* utf8, int length, int remaining_space, 
         write_this = INVALID_UTF8;
         length = INVALID_UTF8_LEN;
     } else {
-        // check validity
         if (utf8_is_valid_at(utf8, length)) {
             write_this = utf8;
         } else {
@@ -202,12 +226,11 @@ bool utf8_replace_invalid_at(const char* utf8, int length, int remaining_space, 
     // write bytes to out
     if (length > out_buf_len) {
         // we have no space left to emit characters
-        invalid = true;
         *bytes_written = 0;
-    } else {
-        memcpy((void*) (out), write_this, length);
-        *bytes_written = length;
+        return true;
     }
+    memcpy((void*) out, write_this, length);
+    *bytes_written = length;
     return invalid;
 }
 // returns true if had to replace any or if it ran out of space
@@ -219,6 +242,10 @@ bool utf8_replace_invalid(const char* utf8, int utf8_len, char* out, int out_buf
     int out_index = 0;
     bool invalid = false;
     while (in_index < utf8_len) {
+        if (out_index >= out_buf_len) {
+            invalid = true;
+            break;
+        }
         uint8_t length = u8length(utf8[in_index]);
 
         uint8_t bytes_written;
@@ -228,7 +255,7 @@ bool utf8_replace_invalid(const char* utf8, int utf8_len, char* out, int out_buf
                 &bytes_written);
         invalid = invalid || current_invalid;
 
-        in_index += current_invalid && in_index + length <= utf8_len ? 1 : length;
+        in_index += current_invalid ? 1 : length;
         out_index += bytes_written;
         if (bytes_written == 0) {
             // no more space left in out
@@ -245,6 +272,7 @@ void utf8_to_codepoint_unchecked_at(
         int length,
         codepoint_t* out) {
     assert(length > 0);
+    assert(length <= 4);
     assert_utf8_is_valid_at(utf8, length); // no-op outside debug mode
 
     // condense to one 4-byte int
@@ -310,14 +338,16 @@ bool utf8_to_codepoint_replace_invalid(const char* utf8, int len, codepoint_t* o
     int out_index = 0;
     while (in_index < len) {
         if (out_index >= out_buf_len) {
-            return true;
+            invalid = true;
+            break;
         }
         uint8_t length = u8length(utf8[in_index]);
         char utf8_fixed[4];
         uint8_t utf8_fixed_len;
-        invalid = utf8_replace_invalid_at(utf8 + in_index, length, len - in_index, utf8_fixed, 4, &utf8_fixed_len) || invalid;
+        bool current_invalid = utf8_replace_invalid_at(utf8 + in_index, length, len - in_index, utf8_fixed, 4, &utf8_fixed_len);
+        invalid = invalid || current_invalid;
         utf8_to_codepoint_unchecked_at(utf8_fixed, utf8_fixed_len, out + out_index);
-        if (invalid && in_index + length <= len) {
+        if (current_invalid) {
             // according to the unicode FAQ, when we hit an invalid multi-byte character, we
             // should drop the first byte and continue parsing at the second, replacing the byte with a marker
             in_index += 1;
@@ -402,3 +432,107 @@ bool codepoint_to_utf8(const codepoint_t* in, int in_len, char* out, int out_buf
     *out_len = out_index;
     return out_of_space;
 }
+
+// returns true if output text is unusable (due to invalid input or no output buffer space)
+bool utf8_to_utf16(const char* utf8, int utf8_len, wchar* out, int out_buf_len, int* out_len) {
+    assert(utf8_len >= 0);
+    assert(out_buf_len >= 0);
+    assert(out_len != NULL);
+    if (!utf8_is_valid(utf8, utf8_len)) return true;
+    bool invalid = false;
+    int in_index = 0;
+    int out_index = 0;
+    while (in_index < utf8_len) {
+        if (out_index >= out_buf_len) {
+            // out of space
+            invalid = true;
+            break;
+        }
+        uint8_t length = u8length(utf8[in_index]);
+        codepoint_t codepoint;
+        utf8_to_codepoint_unchecked_at(utf8 + in_index, utf8_len, &codepoint);
+        uint8_t out_length = codepoint_to_utf16_at(codepoint, out + out_index, out_buf_len - out_index);
+        if(out_length == 0) {
+            // out of space
+            invalid = true;
+            break;
+        }
+        in_index += length;
+        out_index += out_length;
+    }
+    out[out_index] = 0;
+    *out_len = out_index;
+    return invalid;
+}
+
+// returns true if it ran out of space for output text
+bool utf8_to_utf16_unchecked(const char* utf8, int utf8_len, wchar* out, int out_buf_len, int* out_len) {
+    assert(utf8_len >= 0);
+    assert(out_buf_len >= 0);
+    assert(out_len != NULL);
+    assert_utf8_is_valid(utf8, utf8_len);
+    bool out_of_space = false;
+    int in_index = 0;
+    int out_index = 0;
+    while (in_index < utf8_len) {
+        if (out_index >= out_buf_len) {
+            out_of_space = true;
+            break;
+        }
+        uint8_t length = u8length(utf8[in_index]);
+        codepoint_t codepoint;
+        utf8_to_codepoint_unchecked_at(utf8 + in_index, utf8_len, &codepoint);
+        uint8_t out_length = codepoint_to_utf16_at(codepoint, out + out_index, out_buf_len - out_index);
+        if (out_length == 0) {
+            out_of_space = true;
+            break;
+        }
+        in_index += length;
+        out_index += out_length;
+    }
+    out[out_index] = 0;
+    *out_len = out_index;
+    return out_of_space;
+}
+
+// returns true there were any invalid or it ran out of space
+bool utf8_to_utf16_replace_invalid(const char* utf8, int utf8_len, wchar* out, int out_buf_len, int* out_len) {
+    assert(utf8_len >= 0);
+    assert(out_buf_len >= 0);
+    assert(out_len != NULL);
+    bool invalid = false;
+    int in_index = 0;
+    int out_index = 0;
+    while (in_index < utf8_len) {
+        if (out_index >= out_buf_len) {
+            // out of space
+            invalid = true;
+            break;
+        }
+        uint8_t length = u8length(utf8[in_index]);
+        char utf8_fixed[4];
+        uint8_t utf8_fixed_len;
+        codepoint_t codepoint;
+        bool current_invalid = utf8_replace_invalid_at(utf8 + in_index, length, utf8_len - in_index, utf8_fixed, 4, &utf8_fixed_len);
+        invalid = invalid || current_invalid;
+        utf8_to_codepoint_unchecked_at(utf8_fixed, utf8_fixed_len, &codepoint);
+        uint8_t out_length = codepoint_to_utf16_at(codepoint, out + out_index, out_buf_len - out_index);
+        if (out_length == 0) {
+            // out of space
+            invalid = true;
+            break;
+        }
+        if (current_invalid) {
+            // according to the unicode FAQ, when we hit an invalid multi-byte character, we
+            // should drop the first byte and continue parsing at the second, replacing the byte with a marker
+            in_index += 1;
+        } else {
+            in_index += length;
+        }
+        out_index += out_length;
+    }
+    out[out_index] = '\0';
+    *out_len = out_index;
+    return invalid;
+}
+

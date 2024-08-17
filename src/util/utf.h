@@ -13,6 +13,14 @@ typedef wchar_t wchar;
 typdef int16_t wchar;
 #endif
 
+// conversion
+bool utf8_to_utf16(const char* utf8, int utf8_len, wchar* out, int out_buf_len, int* out_len);
+bool utf8_to_utf16_unchecked(const char* utf8, int utf8_len, wchar* out, int out_buf_len, int* out_len);
+bool utf8_to_utf16_replace_invalid(const char* utf8, int utf8_len, wchar* out, int out_buf_len, int* out_len);
+bool utf16_to_utf8(const wchar* utf16, int utf16_len, char* out, int out_buf_len, int* out_len);
+bool utf16_to_utf8_unchecked(const wchar* utf16, int utf16_len, char* out, int out_buf_len, int* out_len);
+bool utf16_to_utf8_replace_invalid(const wchar* utf16, int utf16_len, char* out, int out_buf_len, int* out_len);
+
 // utf8 code
 bool utf8_is_valid_at(const char* utf8, uint8_t length);
 bool utf8_is_valid(const char* utf8, int utf8_len);
@@ -41,7 +49,7 @@ bool utf16_to_codepoint_replace_invalid(const wchar* utf16, int len, codepoint_t
 
 void utf16_to_codepoint_unchecked_at(const wchar* utf16, int length, codepoint_t* out);
 bool utf16_to_codepoint_unchecked(const wchar* utf16, int in_len, codepoint_t* out, int out_buf_len, int* out_len);
-bool utf16_to_codepoint(const char* utf16, int len, codepoint_t* out, int out_buf_len, int* out_len);
+bool utf16_to_codepoint(const wchar* utf16, int len, codepoint_t* out, int out_buf_len, int* out_len);
 uint8_t codepoint_to_utf16_at(codepoint_t codepoint, wchar* out, int out_buf_len);
 bool codepoint_to_utf16(const codepoint_t* in, int in_len, wchar* out, int out_buf_len, int* out_len);
 

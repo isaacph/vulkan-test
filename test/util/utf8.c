@@ -111,7 +111,6 @@ void test_valid(void) {
     };
     int len = sizeof(tests) / sizeof(tests[0]);
     for (int i = 0; i < len; ++i) {
-        printf("Testing %d\n", i);
         codepoint_t codepoint_buffer[1025] = {0};
         char utf8_buffer[1025] = {0};
         int out_len = 0;
@@ -178,6 +177,20 @@ void test_invalid(void) {
         u8(SIZED("hello \370\200\200\200")),
         u8(SIZED("hello \360\300\200\300\200\200")),
         u8(SIZED("hello \360\200\300\200\300\200")),
+
+        // overlongs
+        u8(SIZED("\300\200")),
+        u8(SIZED("\301\277")),
+        u8(SIZED("\340\200\200")),
+        u8(SIZED("\340\201\277")),
+        u8(SIZED("\340\202\200")),
+        u8(SIZED("\340\237\277")),
+        u8(SIZED("\360\200\200\200")),
+        u8(SIZED("\360\200\201\277")),
+        u8(SIZED("\360\200\202\200")),
+        u8(SIZED("\360\200\237\277")),
+        u8(SIZED("\360\200\240\200")),
+        u8(SIZED("\360\217\277\277")),
     };
     U8 tests_fixed[] = {
         u8(SIZED("\357\277\275a")),
@@ -197,8 +210,22 @@ void test_invalid(void) {
         u8(SIZED("hello \357\277\275asdjfio")),
         u8(SIZED("hello \357\277\275\357\277\275\357\277\275")),
         u8(SIZED("hello \357\277\275\357\277\275\357\277\275\357\277\275")),
-        u8(SIZED("hello \357\277\275\300\200\300\200\357\277\275")),
-        u8(SIZED("hello \357\277\275\357\277\275\300\200\300\200")),
+        u8(SIZED("hello \357\277\275\357\277\275\357\277\275\357\277\275\357\277\275\357\277\275")),
+        u8(SIZED("hello \357\277\275\357\277\275\357\277\275\357\277\275\357\277\275\357\277\275")),
+
+        // overlongs
+        u8(SIZED("\357\277\275\357\277\275")),
+        u8(SIZED("\357\277\275\357\277\275")),
+        u8(SIZED("\357\277\275\357\277\275\357\277\275")),
+        u8(SIZED("\357\277\275\357\277\275\357\277\275")),
+        u8(SIZED("\357\277\275\357\277\275\357\277\275")),
+        u8(SIZED("\357\277\275\357\277\275\357\277\275")),
+        u8(SIZED("\357\277\275\357\277\275\357\277\275\357\277\275")),
+        u8(SIZED("\357\277\275\357\277\275\357\277\275\357\277\275")),
+        u8(SIZED("\357\277\275\357\277\275\357\277\275\357\277\275")),
+        u8(SIZED("\357\277\275\357\277\275\357\277\275\357\277\275")),
+        u8(SIZED("\357\277\275\357\277\275\357\277\275\357\277\275")),
+        u8(SIZED("\357\277\275\357\277\275\357\277\275\357\277\275")),
     };
     int len = sizeof(tests) / sizeof(tests[0]);
     codepoint_t buffer[1] = {0};
@@ -206,46 +233,20 @@ void test_invalid(void) {
     char out_buffer[1025] = {0};
     codepoint_t codepoint_buffer[1025] = {0};
     for (int i = 0; i < len; ++i) {
-        printf("%d\n", i);
         out_len = 1;
         assert(!utf8_is_valid(tests[i].buffer, tests[i].length));
         assert(!utf8_to_codepoint(tests[i].buffer, tests[i].length, buffer, 0, &out_len));
         assert(out_len == 0);
 
-        printf("utf8: ");
-        for (int j = 0; j < tests[i].length; ++j) {
-            printf("%x ", tests[i].buffer[j] & 0xff);
-        }
-        printf("\n");
-
         out_len = 1;
         assert(utf8_replace_invalid(tests[i].buffer, tests[i].length, out_buffer, 1024, &out_len));
-        printf("utf8_replaced: ");
-        for (int j = 0; j < out_len; ++j) {
-            printf("%x ", out_buffer[j] & 0xff);
-        }
-        printf("\n");
         assert(!strncmp(out_buffer, tests_fixed[i].buffer, tests_fixed[i].length));
         assert(tests_fixed[i].length == out_len);
 
         out_len = 1;
         assert(utf8_to_codepoint_replace_invalid(tests[i].buffer, tests[i].length, codepoint_buffer, 1024, &out_len));
         assert(out_len != 0);
-        printf("replaced_codepoint: ");
-        for (int j = 0; j < out_len; ++j) {
-            printf("%x ", codepoint_buffer[j]);
-        }
-        printf("\n");
-        printf("len: %d\n", out_len);
         assert(!codepoint_to_utf8(codepoint_buffer, out_len, out_buffer, 1024, &out_len));
-        for (int j = 0; j < tests_fixed[i].length; ++j) {
-            printf("%x ", out_buffer[j] & 0xff);
-        }
-        printf("\n");
-        for (int j = 0; j < tests_fixed[i].length; ++j) {
-            printf("%x ", tests_fixed[i].buffer[j] & 0xff);
-        }
-        printf("\n");
         assert(!strncmp(out_buffer, tests_fixed[i].buffer, tests_fixed[i].length));
         assert(out_len == tests_fixed[i].length);
     }
