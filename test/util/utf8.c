@@ -1,55 +1,11 @@
 #include <util/utf.h>
 #include <assert.h>
 #include <unity.h>
+#include "utf_testing.h"
 #define SIZED(S) (S), (sizeof(S) - 1)
 
 void setUp(void) {}
 void tearDown(void) {}
-
-typedef struct U8 {
-    char buffer[1024];
-    int length;
-} U8;
-U8 u8(const char* buffer, int length) {
-    U8 out;
-    out.buffer[0] = 0;
-    memcpy(out.buffer, buffer, length);
-    out.length = length;
-    return out;
-}
-typedef struct C {
-    codepoint_t buffer[1024];
-    int length;
-} C;
-C c(const char* buffer, int length) {
-    C out;
-    out.buffer[0] = 0;
-    for (int i = 0; i < length; i += 4) {
-        out.buffer[i/4] = ((buffer[i] << 24) & 0xff000000) | ((buffer[i + 1] << 16) & 0xff0000) |
-            ((buffer[i + 2] << 8) & 0xff00) | ((buffer[i + 3]) & 0xff);
-    }
-    out.length = length / 4;
-    out.buffer[out.length] = 0;
-    return out;
-}
-
-bool codepoint_equals_dbg(const codepoint_t* a, const codepoint_t* b, int length) {
-    for (int i = 0; i < length; ++i) {
-        if (a[i] != b[i]) {
-            printf("Left: ");
-            for (int i = 0; i < length; ++i) {
-                printf("%x ", a[i]);
-            }
-            printf("\nRight: ");
-            for (int i = 0; i < length; ++i) {
-                printf("%x ", b[i]);
-            }
-            printf("\n");
-            return false;
-        }
-    }
-    return true;
-}
 
 void test_empty(void) {
     U8 emptyU8 = u8(SIZED(""));
@@ -252,12 +208,251 @@ void test_invalid(void) {
     }
 }
 
+void test_replace_limited_buffer(void) {
+    U8 buffer = u8(SIZED("ab"));
+    char out_limited_char[5];
+    int out_len;
+    assert_utf8_is_valid(buffer.buffer, buffer.length);
+
+    out_len = -1;
+    write_array(out_limited_char, 5, '\0');
+    assert(utf8_replace_invalid(buffer.buffer, buffer.length, out_limited_char, 0, &out_len));
+    assert(out_len == 0);
+    assert(!strncmp(out_limited_char, "\0\0\0\0", 5));
+
+    out_len = -1;
+    write_array(out_limited_char, 5, '\0');
+    assert(utf8_replace_invalid(buffer.buffer, buffer.length, out_limited_char, 1, &out_len));
+    assert(out_len == 1);
+    assert(!strncmp(out_limited_char, "a\0\0\0\0", 5));
+
+    out_len = -1;
+    write_array(out_limited_char, 5, '\0');
+    assert(!utf8_replace_invalid(buffer.buffer, buffer.length, out_limited_char, 2, &out_len));
+    assert(out_len == 2);
+    assert(!strncmp(out_limited_char, "ab\0\0\0", 5));
+
+    buffer = u8(SIZED("\300\200"));
+    assert(!utf8_is_valid(buffer.buffer, buffer.length));
+
+    out_len = -1;
+    write_array(out_limited_char, 5, '\0');
+    assert(utf8_replace_invalid(buffer.buffer, buffer.length, out_limited_char, 0, &out_len));
+    assert(out_len == 0);
+    assert(!strncmp(out_limited_char, "\0\0\0\0", 5));
+
+    out_len = -1;
+    write_array(out_limited_char, 5, '\0');
+    assert(utf8_replace_invalid(buffer.buffer, buffer.length, out_limited_char, 1, &out_len));
+    assert(out_len == 0);
+    assert(!strncmp(out_limited_char, "\0\0\0\0", 5));
+
+    out_len = -1;
+    write_array(out_limited_char, 5, '\0');
+    assert(utf8_replace_invalid(buffer.buffer, buffer.length, out_limited_char, 2, &out_len));
+    assert(out_len == 0);
+    assert(!strncmp(out_limited_char, "\0\0\0\0", 5));
+
+    out_len = -1;
+    write_array(out_limited_char, 5, '\0');
+    assert(utf8_replace_invalid(buffer.buffer, buffer.length, out_limited_char, 3, &out_len));
+    assert(out_len == 3);
+    assert(!strncmp(out_limited_char, "\xEF\xBF\xBD\0", 5));
+
+    out_len = -1;
+    write_array(out_limited_char, 5, '\0');
+    assert(utf8_replace_invalid(buffer.buffer, buffer.length, out_limited_char, 4, &out_len));
+    assert(out_len == 3);
+    assert(!strncmp(out_limited_char, "\xEF\xBF\xBD\0", 5));
+
+    char out_limited_char_2[7];
+
+    out_len = -1;
+    write_array(out_limited_char_2, 7, '\0');
+    assert(utf8_replace_invalid(buffer.buffer, buffer.length, out_limited_char_2, 5, &out_len));
+    assert(out_len == 3);
+    assert(!strncmp(out_limited_char_2, "\xEF\xBF\xBD\0\0\0", 7));
+
+    out_len = -1;
+    write_array(out_limited_char_2, 7, '\0');
+    assert(utf8_replace_invalid(buffer.buffer, buffer.length, out_limited_char_2, 6, &out_len));
+    assert(out_len == 6);
+    assert(!strncmp(out_limited_char_2, "\xEF\xBF\xBD\xEF\xBF\xBD", 7));
+}
+
+void test_utf8_to_cp_limited_buffer(void) {
+    U8 buffer = u8(SIZED("abcd"));
+    codepoint_t out_limited[6];
+    C comp;
+    int out_len;
+    assert_utf8_is_valid(buffer.buffer, buffer.length);
+
+    out_len = -1;
+    write_array_cp(out_limited, 5, 0);
+    assert(utf8_to_codepoint(buffer.buffer, buffer.length, out_limited, 0, &out_len));
+    assert(out_len == 0);
+    comp = c(SIZED(""));
+    assert(codepoint_equals_dbg(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array_cp(out_limited, 5, 0);
+    assert(utf8_to_codepoint(buffer.buffer, buffer.length, out_limited, 1, &out_len));
+    assert(out_len == 1);
+    comp = c(SIZED("\0\0\0a"));
+    assert(codepoint_equals_dbg(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array_cp(out_limited, 5, 0);
+    assert(utf8_to_codepoint(buffer.buffer, buffer.length, out_limited, 2, &out_len));
+    assert(out_len == 2);
+    comp = c(SIZED("\0\0\0a\0\0\0b"));
+    assert(codepoint_equals_dbg(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array_cp(out_limited, 5, 0);
+    assert(utf8_to_codepoint(buffer.buffer, buffer.length, out_limited, 3, &out_len));
+    assert(out_len == 3);
+    comp = c(SIZED("\0\0\0a\0\0\0b\0\0\0c"));
+    assert(codepoint_equals_dbg(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array_cp(out_limited, 5, 0);
+    assert(!utf8_to_codepoint(buffer.buffer, buffer.length, out_limited, 4, &out_len));
+    assert(out_len == 4);
+    comp = c(SIZED("\0\0\0a\0\0\0b\0\0\0c\0\0\0d"));
+    assert(codepoint_equals_dbg(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array_cp(out_limited, 6, 0);
+    assert(!utf8_to_codepoint(buffer.buffer, buffer.length, out_limited, 5, &out_len));
+    assert(out_len == 4);
+    comp = c(SIZED("\0\0\0a\0\0\0b\0\0\0c\0\0\0d"));
+    assert(codepoint_equals_dbg(out_limited, comp.buffer, comp.length + 1));
+
+    buffer = u8(SIZED("\xD0\x80"));
+    out_len = -1;
+    write_array_cp(out_limited, 6, 0);
+    assert(utf8_to_codepoint(buffer.buffer, buffer.length, out_limited, 0, &out_len));
+    assert(out_len == 0);
+    comp = c(SIZED(""));
+    assert(codepoint_equals_dbg(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array_cp(out_limited, 6, 0);
+    assert(!utf8_to_codepoint(buffer.buffer, buffer.length, out_limited, 1, &out_len));
+    assert(out_len == 1);
+    comp = c(SIZED("\0\0\x04\x00"));
+    assert(codepoint_equals_dbg(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array_cp(out_limited, 6, 0);
+    assert(!utf8_to_codepoint(buffer.buffer, buffer.length, out_limited, 2, &out_len));
+    assert(out_len == 1);
+    comp = c(SIZED("\0\0\x04\x00"));
+    assert(codepoint_equals_dbg(out_limited, comp.buffer, comp.length + 1));
+}
+
+void test_cp_to_utf8_limited_buffer(void) {
+    C buffer = c(SIZED("\0\0\0a\0\0\x04\x00\0\0\x0F\x00\0\x0F\x00\x00"));
+    char out_limited[16];
+    U8 comp;
+    int out_len;
+
+    out_len = -1;
+    write_array(out_limited, 16, '\0');
+    assert(codepoint_to_utf8(buffer.buffer, buffer.length, out_limited, 0, &out_len));
+    assert(out_len == 0);
+    comp = u8(SIZED(""));
+    assert(!strncmp(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array(out_limited, 16, '\0');
+    assert(codepoint_to_utf8(buffer.buffer, buffer.length, out_limited, 1, &out_len));
+    assert(out_len == 1);
+    comp = u8(SIZED("a"));
+    assert(!strncmp(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array(out_limited, 16, '\0');
+    assert(codepoint_to_utf8(buffer.buffer, buffer.length, out_limited, 2, &out_len));
+    assert(out_len == 1);
+    comp = u8(SIZED("a"));
+    assert(!strncmp(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array(out_limited, 16, '\0');
+    assert(codepoint_to_utf8(buffer.buffer, buffer.length, out_limited, 3, &out_len));
+    assert(out_len == 3);
+    comp = u8(SIZED("a\xD0\x80"));
+    assert(!strncmp(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array(out_limited, 16, '\0');
+    assert(codepoint_to_utf8(buffer.buffer, buffer.length, out_limited, 4, &out_len));
+    assert(out_len == 3);
+    comp = u8(SIZED("a\xD0\x80"));
+    assert(!strncmp(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array(out_limited, 16, '\0');
+    assert(codepoint_to_utf8(buffer.buffer, buffer.length, out_limited, 5, &out_len));
+    assert(out_len == 3);
+    comp = u8(SIZED("a\xD0\x80"));
+    assert(!strncmp(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array(out_limited, 16, '\0');
+    assert(codepoint_to_utf8(buffer.buffer, buffer.length, out_limited, 6, &out_len));
+    assert(out_len == 6);
+    comp = u8(SIZED("a\xD0\x80\xE0\xBC\x80"));
+    assert(!strncmp(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array(out_limited, 16, '\0');
+    assert(codepoint_to_utf8(buffer.buffer, buffer.length, out_limited, 7, &out_len));
+    assert(out_len == 6);
+    comp = u8(SIZED("a\xD0\x80\xE0\xBC\x80"));
+    assert(!strncmp(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array(out_limited, 16, '\0');
+    assert(codepoint_to_utf8(buffer.buffer, buffer.length, out_limited, 8, &out_len));
+    assert(out_len == 6);
+    comp = u8(SIZED("a\xD0\x80\xE0\xBC\x80"));
+    assert(!strncmp(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array(out_limited, 16, '\0');
+    assert(codepoint_to_utf8(buffer.buffer, buffer.length, out_limited, 9, &out_len));
+    assert(out_len == 6);
+    comp = u8(SIZED("a\xD0\x80\xE0\xBC\x80"));
+    assert(!strncmp(out_limited, comp.buffer, comp.length + 1));
+
+    out_len = -1;
+    write_array(out_limited, 16, '\0');
+    assert(!codepoint_to_utf8(buffer.buffer, buffer.length, out_limited, 10, &out_len));
+    assert(out_len == 10);
+    comp = u8(SIZED("a\xD0\x80\xE0\xBC\x80\xF3\xB0\x80\x80"));
+    assert(!strncmp(out_limited, comp.buffer, comp.length + 1));
+
+    for (int i = 11; i <= 16; ++i) {
+        out_len = -1;
+        write_array(out_limited, 16, '\0');
+        assert(!codepoint_to_utf8(buffer.buffer, buffer.length, out_limited, i, &out_len));
+        assert(out_len == 10);
+        comp = u8(SIZED("a\xD0\x80\xE0\xBC\x80\xF3\xB0\x80\x80"));
+        assert(!strncmp(out_limited, comp.buffer, comp.length + 1));
+    }
+}
+
 int main() {
     init_exceptions(false);
     UNITY_BEGIN();
     RUN_TEST(test_empty);
     RUN_TEST(test_valid);
     RUN_TEST(test_invalid);
+    RUN_TEST(test_replace_limited_buffer);
+    RUN_TEST(test_utf8_to_cp_limited_buffer);
     return UNITY_END();
 }
 

@@ -156,6 +156,7 @@ bool utf16_replace_invalid(const wchar* utf16, int utf16_len, wchar* out, int ou
         out_index += bytes_written;
         if (bytes_written == 0) {
             // no more space left in out
+            invalid = true;
             break;
         }
     }
@@ -181,6 +182,7 @@ void utf16_to_codepoint_unchecked_at(const wchar* utf16, int length, codepoint_t
 // the main conversion implementation, does not check utf16 validity in release
 // returns true if it ran out of space to write to out
 bool utf16_to_codepoint_unchecked(const wchar* utf16, int in_len, codepoint_t* out, int out_buf_len, int* out_len) {
+    assert_utf16_is_valid_at(utf16, in_len);
     int in_index = 0;
     int out_index = 0;
     bool out_of_space = false;
@@ -221,7 +223,8 @@ bool utf16_to_codepoint_replace_invalid(const wchar* utf16, int len, codepoint_t
     int out_index = 0;
     while (in_index < len) {
         if (out_index >= out_buf_len) {
-            return true;
+            invalid = true;
+            break;
         }
         uint8_t length = utf16_length(utf16[in_index]);
         wchar utf16_fixed[2] = {0};

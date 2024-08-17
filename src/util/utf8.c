@@ -259,6 +259,7 @@ bool utf8_replace_invalid(const char* utf8, int utf8_len, char* out, int out_buf
         out_index += bytes_written;
         if (bytes_written == 0) {
             // no more space left in out
+            invalid = true;
             break;
         }
     }
@@ -301,6 +302,7 @@ void utf8_to_codepoint_unchecked_at(
 // returns true if it ran out of space to write to
 // the main conversion implementation, does not check utf8 validity in release
 bool utf8_to_codepoint_unchecked(const char* utf8, int in_len, codepoint_t* out, int out_buf_len, int* out_len) {
+    assert_utf8_is_valid(utf8, in_len);
     int in_index = 0;
     int out_index = 0;
     bool out_of_space = false;
@@ -338,7 +340,6 @@ bool utf8_to_codepoint_replace_invalid(const char* utf8, int len, codepoint_t* o
     int out_index = 0;
     while (in_index < len) {
         if (out_index >= out_buf_len) {
-            invalid = true;
             break;
         }
         uint8_t length = u8length(utf8[in_index]);

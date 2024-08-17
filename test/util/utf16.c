@@ -1,75 +1,11 @@
 #include <util/utf.h>
+#include "utf_testing.h"
 #include <assert.h>
 #include <unity.h>
 #define SIZED(S) (S), (sizeof(S) - 1)
 
 void setUp(void) {}
 void tearDown(void) {}
-
-typedef struct U {
-    wchar buffer[1024];
-    int length;
-} U;
-static U u(const char* buffer, int length) {
-    U out;
-    out.buffer[0] = 0;
-    for (int i = 0; i < length; i += 2) {
-        out.buffer[i/2] = ((buffer[i + 0] << 8) & 0xff00) | ((buffer[i + 1]) & 0xff);
-    }
-    out.length = length / 2;
-    out.buffer[out.length] = 0;
-    return out;
-}
-typedef struct C {
-    codepoint_t buffer[1024];
-    int length;
-} C;
-static C c(const char* buffer, int length) {
-    C out;
-    out.buffer[0] = 0;
-    for (int i = 0; i < length; i += 4) {
-        out.buffer[i/4] = ((buffer[i] << 24) & 0xff000000) | ((buffer[i + 1] << 16) & 0xff0000) |
-            ((buffer[i + 2] << 8) & 0xff00) | ((buffer[i + 3]) & 0xff);
-    }
-    out.length = length / 4;
-    out.buffer[out.length] = 0;
-    return out;
-}
-
-static bool wchar_equals_dbg(const wchar* a, const wchar* b, int length) {
-    for (int i = 0; i < length; ++i) {
-        if (a[i] != b[i]) {
-            printf("Left: ");
-            for (int i = 0; i < length; ++i) {
-                printf("%x ", a[i]);
-            }
-            printf("\nRight: ");
-            for (int i = 0; i < length; ++i) {
-                printf("%x ", b[i]);
-            }
-            printf("\n");
-            return false;
-        }
-    }
-    return true;
-}
-static bool codepoint_equals_dbg(const codepoint_t* a, const codepoint_t* b, int length) {
-    for (int i = 0; i < length; ++i) {
-        if (a[i] != b[i]) {
-            printf("Left: ");
-            for (int i = 0; i < length; ++i) {
-                printf("%x ", a[i]);
-            }
-            printf("\nRight: ");
-            for (int i = 0; i < length; ++i) {
-                printf("%x ", b[i]);
-            }
-            printf("\n");
-            return false;
-        }
-    }
-    return true;
-}
 
 void test_empty(void) {
     U emptyU = u(SIZED(""));
