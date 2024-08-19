@@ -42,18 +42,14 @@ void assert_utf16_is_valid_at(const wchar* utf16, int length) {
     assert(length <= 2);
     switch (length) {
     case 0:
-        char* msg = malloc(1000);
-        if (!msg) exception_msg("Error while erroring, malloc, invalid UTF-16 lower surrogate");
-        snprintf(msg, 1000, "UTF-16 is not valid. Unexpected lower surrogate %d", utf16[0]);
-        exception_msg(msg);
-        free(msg); // we never get here
+        return;
     case 1:
         return;
     case 2:
         // require lower surrogate format for second wchar
         if ((utf16[1] & 0xFC00) != 0xDC00) {
             printf("????\n");
-            char* msg = malloc(1000);
+            char* msg = (char*) malloc(1000);
             if (!msg) exception_msg("Error while erroring, malloc, second wchar was not a lower surrogate");
             snprintf(msg, 1000, "UTF-16 is not valid. Invalid lower surrogate %x", utf16[1]);
             exception_msg(msg);
@@ -84,12 +80,13 @@ void assert_utf16_is_valid(const wchar* utf16, int utf16_len) {
     while (index < utf16_len) {
         uint8_t length = utf16_length(utf16[index]);
         if (index + length > utf16_len) {
-            char* msg = malloc(1000);
+            char* msg = (char*) malloc(1000);
             if (!msg) exception_msg("Error while erroring, malloc, upper surrogate attempts string overflow");
             snprintf(msg, 1000, "UTF-16 is not valid. Upper surrogate %d attempts string overflow at index %d", utf16[index], index);
             exception_msg(msg);
             free(msg); // we never get here
         }
+        printf("%d / %d, +%d\n", index, utf16_len, length);
         assert_utf16_is_valid_at(utf16 + index, length);
         index += length;
     }
@@ -274,7 +271,7 @@ uint8_t codepoint_to_utf16_at(codepoint_t codepoint, wchar* out, int out_buf_len
     }
 
     // invalid codepoint out of range
-    char* msg = malloc(1000);
+    char* msg = (char*) malloc(1000);
     if (!msg) exception_msg("Error while erroring, malloc, invalid unicode codepoint: too large for UTF-16");
     snprintf(msg, 1000, "Unicode codepoint is not valid. Codepoint %d is too large for UTF-16", codepoint);
     exception_msg(msg);
@@ -318,7 +315,8 @@ bool utf16_to_utf8(const wchar* utf16, int utf16_len, char* out, int out_buf_len
         }
         uint8_t length = utf16_length(utf16[in_index]);
         codepoint_t codepoint;
-        utf16_to_codepoint_unchecked_at(utf16 + in_index, utf16_len, &codepoint);
+        assert(in_index + length <= utf16_len);
+        utf16_to_codepoint_unchecked_at(utf16 + in_index, length, &codepoint);
         uint8_t out_length = codepoint_to_utf8_at(codepoint, out + out_index, out_buf_len - out_index);
         if (out_length == 0) {
             // out of space
@@ -349,7 +347,8 @@ bool utf16_to_utf8_unchecked(const wchar* utf16, int utf16_len, char* out, int o
         }
         uint8_t length = utf16_length(utf16[in_index]);
         codepoint_t codepoint;
-        utf16_to_codepoint_unchecked_at(utf16 + in_index, utf16_len, &codepoint);
+        assert(in_index + length <= utf16_len);
+        utf16_to_codepoint_unchecked_at(utf16 + in_index, length, &codepoint);
         uint8_t out_length = codepoint_to_utf8_at(codepoint, out + out_index, out_buf_len - out_index);
         if (out_length == 0) {
             out_of_space = true;

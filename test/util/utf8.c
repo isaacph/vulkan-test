@@ -191,7 +191,7 @@ void test_invalid(void) {
     for (int i = 0; i < len; ++i) {
         out_len = 1;
         assert(!utf8_is_valid(tests[i].buffer, tests[i].length));
-        assert(!utf8_to_codepoint(tests[i].buffer, tests[i].length, buffer, 0, &out_len));
+        assert(utf8_to_codepoint(tests[i].buffer, tests[i].length, buffer, 0, &out_len));
         assert(out_len == 0);
 
         out_len = 1;
@@ -445,6 +445,67 @@ void test_cp_to_utf8_limited_buffer(void) {
     }
 }
 
+// most is_valid tests are covered above. add more tests here if is_valid diverges for cross
+// conversion
+void test_utf8_to_utf16_invalid(void) {
+    wchar out[8] = {0};
+    int len = -1;
+    assert(utf8_to_utf16(SIZED("\xD0"), out, 8, &len));
+    assert(len == 0);
+    for (int i = 0; i < 8; ++i) assert(out[i] == 0);
+}
+
+void test_utf8_utf16_valid(void) {
+    U8 tests[] = {
+        u8(SIZED("")),
+        u8(SIZED("Mary had a little lamb\r\n")),
+        u8(SIZED("a\xD0\x80\xE0\xBC\x80\xF3\xB0\x80\x80")),
+    };
+    U expected[] = {
+        u(SIZED("")),
+        u(SIZED("\0M\0a\0r\0y\0 \0h\0a\0d\0 \0a\0 \0l\0i\0t\0t\0l\0e\0 \0l\0a\0m\0b\0\r\0\n")),
+        u(SIZED("\0a\x04\x00\x0F\x00\xD8\x03\xDF\x00")),
+    };
+    for (int i = 0; i < sizeof(tests) / sizeof(tests[0]); ++i) {
+        wchar out_u16[1025] = {0};
+        char out_u8[1025] = {0};
+        int out_len = -1;
+
+        out_len = -1;
+        write_array_wchar(out_u16, 1025, 0);
+        assert(!utf8_to_utf16(tests[i].buffer, tests[i].length, out_u16, 1024, &out_len));
+        assert(wchar_equals_dbg(out_u16, expected[i].buffer, expected[i].length));
+        assert(out_len == expected[i].length);
+
+        out_len = -1;
+        write_array_wchar(out_u16, 1025, 0);
+        assert(!utf8_to_utf16_unchecked(tests[i].buffer, tests[i].length, out_u16, 1024, &out_len));
+        assert(wchar_equals_dbg(out_u16, expected[i].buffer, expected[i].length));
+        assert(out_len == expected[i].length);
+
+        out_len = -1;
+        write_array(out_u8, 1025, 0);
+        assert(!utf16_to_utf8(expected[i].buffer, tests[i].length, out_u8, 1024, &out_len));
+        assert(!strncmp(out_u8, tests[i].buffer, tests[i].length));
+        assert(out_len == tests[i].length);
+
+        out_len = -1;
+        write_array(out_u8, 1025, 0);
+        assert(!utf16_to_utf8_unchecked(expected[i].buffer, tests[i].length, out_u8, 1024, &out_len));
+        assert(!strncmp(out_u8, tests[i].buffer, tests[i].length));
+        assert(out_len == tests[i].length);
+    }
+}
+
+void test_utf8_to_utf16_replace(void) {
+}
+
+void test_utf8_to_utf16_limited_buffer(void) {
+}
+
+void test_utf8_to_utf16_replace_limited_buffer(void) {
+}
+
 int main() {
     init_exceptions(false);
     UNITY_BEGIN();
@@ -453,6 +514,11 @@ int main() {
     RUN_TEST(test_invalid);
     RUN_TEST(test_replace_limited_buffer);
     RUN_TEST(test_utf8_to_cp_limited_buffer);
+    RUN_TEST(test_utf8_to_utf16_invalid);
+    RUN_TEST(test_utf8_utf16_valid);
+    RUN_TEST(test_utf8_to_utf16_replace);
+    RUN_TEST(test_utf8_to_utf16_limited_buffer);
+    RUN_TEST(test_utf8_to_utf16_replace_limited_buffer);
     return UNITY_END();
 }
 

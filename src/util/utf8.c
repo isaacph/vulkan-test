@@ -329,7 +329,7 @@ bool utf8_to_codepoint_unchecked(const char* utf8, int in_len, codepoint_t* out,
 bool utf8_to_codepoint(const char* utf8, int len, codepoint_t* out, int out_buf_len, int* out_len) {
     if (!utf8_is_valid(utf8, len)) {
         *out_len = 0;
-        return false;
+        return true;
     }
     return utf8_to_codepoint_unchecked(utf8, len, out, out_buf_len, out_len);
 }
@@ -439,7 +439,10 @@ bool utf8_to_utf16(const char* utf8, int utf8_len, wchar* out, int out_buf_len, 
     assert(utf8_len >= 0);
     assert(out_buf_len >= 0);
     assert(out_len != NULL);
-    if (!utf8_is_valid(utf8, utf8_len)) return true;
+    if (!utf8_is_valid(utf8, utf8_len)) {
+        *out_len = 0;
+        return true;
+    }
     bool invalid = false;
     int in_index = 0;
     int out_index = 0;
@@ -451,7 +454,9 @@ bool utf8_to_utf16(const char* utf8, int utf8_len, wchar* out, int out_buf_len, 
         }
         uint8_t length = u8length(utf8[in_index]);
         codepoint_t codepoint;
-        utf8_to_codepoint_unchecked_at(utf8 + in_index, utf8_len, &codepoint);
+        assert(in_index + length <= utf8_len);
+        utf8_to_codepoint_unchecked_at(utf8 + in_index, length, &codepoint);
+        printf("codepoint: %x\n", codepoint);
         uint8_t out_length = codepoint_to_utf16_at(codepoint, out + out_index, out_buf_len - out_index);
         if(out_length == 0) {
             // out of space
@@ -482,7 +487,8 @@ bool utf8_to_utf16_unchecked(const char* utf8, int utf8_len, wchar* out, int out
         }
         uint8_t length = u8length(utf8[in_index]);
         codepoint_t codepoint;
-        utf8_to_codepoint_unchecked_at(utf8 + in_index, utf8_len, &codepoint);
+        assert(in_index + length <= utf8_len);
+        utf8_to_codepoint_unchecked_at(utf8 + in_index, length, &codepoint);
         uint8_t out_length = codepoint_to_utf16_at(codepoint, out + out_index, out_buf_len - out_index);
         if (out_length == 0) {
             out_of_space = true;

@@ -92,4 +92,10 @@ static void write_array_cp(codepoint_t* target, int length, codepoint_t value) {
     }
 }
 
+static void write_array_wchar(wchar* target, int length, wchar value) {
+    for (int i = 0; i < length; ++i) {
+        target[i] = value;
+    }
+}
+
 #endif // UTF_TESTING_H_INCLUDED
