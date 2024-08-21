@@ -3,6 +3,10 @@
 #include <stdbool.h>
 #include <vulkan/vulkan_core.h>
 #include "util/memory.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include "util/backtrace.h"
+#include <string.h>
 
 const char* const ENABLE_DEVICE_EXTENSIONS[] = {
     "VK_KHR_swapchain",
@@ -81,11 +85,11 @@ InitDevice rc_init_device(InitDeviceParams params) {
                             i);
                     continue;
                 }
-                if (vkGetPhysicalDeviceWin32PresentationSupportKHR(device, i)
-                        == VK_FALSE) {
-                    printf("Queue family %i does not support Win32 presentation", i);
-                    continue;
-                }
+                // if (vkGetPhysicalDeviceWin32PresentationSupportKHR(device, i)
+                //         == VK_FALSE) {
+                //     printf("Queue family %i does not support Win32 presentation", i);
+                //     continue;
+                // }
 
                 foundQFIndex = i;
                 foundQueueFamily = true;

@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <unity.h>
 #include "utf_testing.h"
+#include <util/backtrace.h>
 #define SIZED(S) (S), (sizeof(S) - 1)
 
 void setUp(void) {}

@@ -10,7 +10,7 @@ typedef uint32_t codepoint_t;
 #if defined(_WIN32)
 typedef wchar_t wchar;
 #else
-typdef int16_t wchar;
+typedef int16_t wchar;
 #endif
 
 // conversion

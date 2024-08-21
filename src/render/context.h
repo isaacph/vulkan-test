@@ -5,6 +5,7 @@
 #include "util/memory.h"
 #include <stdbool.h>
 #include "win32.h"
+#include "wayland.h"
 
 typedef struct FrameData {
     VkCommandPool commandPool;

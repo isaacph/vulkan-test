@@ -23,6 +23,11 @@ include_directories($ENV{UniversalCRTSdkDir}/Include/10.0.10056.0/ucrt)
 find_package(VulkanHeaders)
 find_package(VulkanLoader)
 
+if (UNIX)
+    find_package(PkgConfig)
+    pkg_check_modules(libunwind REQUIRED libunwind)
+endif (UNIX)
+
 find_program(GLSL_VALIDATOR glslangValidator HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
 
 set(SHADERS_GENERATED "${PROJECT_BINARY_DIR}/include/shaders_generated.h")
@@ -117,6 +122,9 @@ target_link_libraries(Main
 if (WIN32)
     target_link_libraries(Main dbghelp legacy_stdio_definitions)
 endif (WIN32)
+if (UNIX)
+    target_link_libraries(Main ${libunwind_LIBRARIES})
+endif (UNIX)
 
 add_executable(Game src/main.c)
 target_link_libraries(Game Main)

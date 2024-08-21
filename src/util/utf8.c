@@ -1,6 +1,9 @@
 #include "utf.h"
 #include <stdlib.h>
 #include <assert.h>
+#include "backtrace.h"
+#include <stdio.h>
+#include <string.h>
 
 static uint8_t const u8_length[] = {
 // 0 1 2 3 4 5 6 7 8 9 A B C D E F

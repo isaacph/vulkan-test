@@ -1,6 +1,7 @@
 #include "memory.h"
 #include <assert.h>
 #include <stdlib.h>
+#include "backtrace.h"
 
 void* checkMalloc(void* ptr) {
     if (ptr == NULL) {

@@ -1,5 +1,9 @@
 #include "utf.h"
 #include <assert.h>
+#include "backtrace.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 // the invalid UTF-16 character marker (also equal to the codepoint in this case)
 static const wchar INVALID_UTF16 = 0xFFFD;
@@ -8,11 +12,10 @@ static const int INVALID_UTF16_LEN = 1;
 // returns 2 if c is an upper surrogate, 0 (invalid) if c is a lower surrogate, else 1
 // returns the length of the unicode character (1 or 2 wchars)
 static uint8_t utf16_length(wchar c) {
-    wchar r = c & 0xFC00;
-    if (r == 0xD800) {
+    if ((c & 0xFC00) == 0xD800) {
         return 2; // upper surrogate
     }
-    if (r == 0xDC00) {
+    if ((c & 0xFC00) == 0xDC00) {
         return 0; // invalid lower surrogate on first wchar
     }
     return 1;
@@ -120,7 +123,7 @@ bool utf16_replace_invalid_at(const wchar* utf16, int length, int remaining_spac
         *wchar_written = 0;
         return true;
     }
-    printf("writing %llu bytes, ", length * sizeof(wchar));
+    printf("writing %lu bytes, ", length * sizeof(wchar));
     memcpy((void*) out, write_this, length * sizeof(wchar));
     *wchar_written = length;
     return invalid;

@@ -1,3 +1,4 @@
+#if defined(_WIN32)
 #include "util.h"
 #ifndef UNICODE
 #define UNICODE
@@ -149,4 +150,4 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
     }
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
-
+#endif

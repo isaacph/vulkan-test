@@ -1,7 +1,4 @@
-#include <windows.h>
 #include "backtrace.h"
-#include <errhandlingapi.h>
-#include <excpt.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -13,12 +10,27 @@
 #include <minwindef.h>
 #include <winnt.h>
 #include <dbghelp.h>
+#include <windows.h>
+#include <errhandlingapi.h>
+#include <excpt.h>
 #endif
 
 #define WALK_LENGTH 100
 
 void do_backtrace(bool fatal);
 void force_interrupt();
+
+static const char* signal_name(int s) {
+    switch(s) {
+        case SIGABRT: return "SIGABRT";
+        case SIGFPE: return "SIGFPE";
+        case SIGILL: return "SIGILL";
+        case SIGINT: return "SIGINT";
+        case SIGSEGV: return "SIGSEGV";
+        case SIGTERM: return "SIGTERM";
+        default: return "Unknown signal";
+    }
+}
 
 void exception_msg(const char* message) {
     fprintf(stderr, "Error: %s\n", message);
@@ -31,69 +43,88 @@ void exception() {
 }
 
 void force_interrupt() {
-#if defined(_WIN32)
     raise(SIGSEGV);
-#endif
 }
 
 #if defined(__linux__)
-// don't free the return value
-const char* get_executable_path() {
-#if defined(_WIN32)
-    // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/get-pgmptr?view=msvc-170
-    return _pgmptr;
-#else
-    return NULL;
-#endif
-}
+#define UNW_LOCAL_ONLY 
+#include <libunwind.h>
+#include <libunwind-ptrace.h>
+#define MAX_BACKTRACE_FRAMES 64
 
 void exception_backtrace_error_callback(void* data, const char* msg, int errnum) {
     printf("Error creating backtrace\nErrno: %i\nMsg: %s\n\n", errnum, msg);
 }
-
-struct backtrace_state* backtrace_state;
 
 int exception_backtrace_full_callback(void* data, uintptr_t pc, const char* filename, int lineno, const char* function) {
     printf("%s:%s:%i at %p\n", filename, function, lineno, (void*) pc);
     return 0;
 }
 
-void init_exceptions(bool threaded) {
-    const char* executable = get_executable_path();
-    printf("Found executable name: %s\n", executable);
-    // this doesn't work
-    // int len = strlen(executable) + 3;
-    // char* executable2 = malloc(len);
-    // snprintf(executable2, len, "%s.p", executable);
-    // printf("Found executable name: %s\n", executable2);
-    backtrace_state = backtrace_create_state(executable, threaded, exception_backtrace_error_callback, NULL);
+void sigAction(int signal, siginfo_t* info, void* ptr) {
+    fprintf(stderr, "Exception: %s (%d)\n", signal_name(signal), signal);
+
+    do_backtrace(true);
 }
 
-void do_backtrace() {
-    backtrace_full(
-            backtrace_state,
-            1,
-            exception_backtrace_full_callback,
-            exception_backtrace_error_callback,
-            NULL);
-    backtrace_print(backtrace_state, 1, stdout);
+void init_exceptions(bool threaded) {
+    int signals[] = {
+        SIGABRT,
+        SIGFPE,
+        SIGILL,
+        SIGINT,
+        SIGSEGV,
+        SIGTERM,
+    };
+    printf("Init signals\n");
+    for (int i = 0; i < sizeof(signals) / sizeof(signals[0]); ++i) {
+        int signal = signals[i];
+        printf("Init signal %d\n", signal);
+        struct sigaction action = {
+            .sa_handler = NULL,
+            .sa_sigaction = sigAction,
+            .sa_mask = 0,
+            .sa_flags = 0,
+            .sa_restorer = NULL,
+        };
+        sigaction(signal, &action, NULL);
+    }
+}
+
+void do_backtrace(bool fatal) {
+    // unw_create_addr_space(&_UPT_accessors, 0);
+    unw_cursor_t cursor; unw_context_t context;
+    unw_word_t offset = 0; unw_word_t sp; unw_word_t ip;
+    char proc_name_buf[1024];
+
+    unw_getcontext(&context);
+    unw_init_local(&cursor, &context);
+    while (unw_step(&cursor) > 0) {
+        // get the stack frame trace
+        unw_get_reg(&cursor, UNW_REG_IP, &ip);
+        unw_get_reg(&cursor, UNW_REG_SP, &sp);
+        int result = unw_get_proc_name(&cursor, proc_name_buf, 1024, &offset);
+        if (!result) {
+            // print stack frame
+            fprintf(stderr, "Stack frame: %s:%lu, ip:%lx, sp:%lx\n", proc_name_buf, offset, ip, sp);
+        } else if (result == UNW_EUNSPEC) {
+            fprintf(stderr, "Unspecified error printing stack frame\n");
+        } else if (result == UNW_ENOINFO) {
+            fprintf(stderr, "Unable to determine procedure name\n");
+        } else if (result == UNW_ENOMEM) {
+            fprintf(stderr, "Procedure name was too long\n");
+        } else {
+            fprintf(stderr, "Invalid stack frame printing error\n");
+        }
+    }
+    fprintf(stderr, "Finished printing stack trace\n");
+
+    if (fatal) exit(1);
 }
 #endif
 
 
 #if defined(_WIN32)
-
-const char* signal_name(int s) {
-    switch(s) {
-        case SIGABRT: return "SIGABRT";
-        case SIGFPE: return "SIGFPE";
-        case SIGILL: return "SIGILL";
-        case SIGINT: return "SIGINT";
-        case SIGSEGV: return "SIGSEGV";
-        case SIGTERM: return "SIGTERM";
-        default: return "Unknown signal";
-    }
-}
 
 void sigHandler(int s) {
     fprintf(stderr, "Exception: %s (%d)\n", signal_name(s), s);

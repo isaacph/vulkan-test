@@ -3,6 +3,10 @@
 #include "functions.h"
 #include <math.h>
 #include <vulkan/vulkan_core.h>
+#include "render/util.h"
+#include "util/backtrace.h"
+#include <stdlib.h>
+#include <stdio.h>
 
 void rc_init_loop(RenderContext* context) {
     if (context->device == VK_NULL_HANDLE) {

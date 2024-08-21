@@ -1,6 +1,8 @@
 #ifndef UTF_TESTING_H_INCLUDED
 #define UTF_TESTING_H_INCLUDED
 #include <util/utf.h>
+#include <string.h>
+#include <stdio.h>
 
 typedef struct U8 {
     char buffer[1024];

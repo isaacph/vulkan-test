@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <render/context.h>
 #include <unity.h>
+#include <util/backtrace.h>
 
 StaticCache cleanup;
 

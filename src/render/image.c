@@ -1,5 +1,6 @@
 #include "context.h"
 #include <stdbool.h>
+#include <stdlib.h>
 
 VkImageSubresourceRange basic_image_subresource_range(VkImageAspectFlags aspectMask) {
     VkImageSubresourceRange subImage = {

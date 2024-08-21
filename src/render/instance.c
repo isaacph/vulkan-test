@@ -3,6 +3,10 @@
 #include "util.h"
 #include <stdbool.h>
 #include "util/memory.h"
+#include "util/backtrace.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 const char* const ENABLE_EXTENSIONS[] = {
     "VK_KHR_surface", // rendering to monitors

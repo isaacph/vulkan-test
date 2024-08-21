@@ -2,6 +2,9 @@
 #include "util.h"
 #include <stdbool.h>
 #include "../util/memory.h"
+#include "util/backtrace.h"
+#include <stdlib.h>
+#include <stdio.h>
 
 // must be called prior to calling rc_init_swapchain
 void rc_configure_swapchain(RenderContext* renderContext) {
