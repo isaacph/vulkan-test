@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <backtrace.h>
 
 #if defined(_WIN32)
 #include <minwindef.h>
@@ -47,7 +48,8 @@ void force_interrupt() {
 }
 
 #if defined(__linux__)
-#include <execinfo.h>
+
+struct backtrace_state* backtrace_state;
 
 void exception_backtrace_error_callback(void* data, const char* msg, int errnum) {
     printf("Error creating backtrace\nErrno: %i\nMsg: %s\n\n", errnum, msg);
@@ -86,24 +88,11 @@ void init_exceptions(bool threaded) {
         };
         sigaction(signal, &action, NULL);
     }
+    backtrace_state = backtrace_create_state(NULL, false, exception_backtrace_error_callback, NULL);
 }
 
-// 0x14f0 + 0x36 = 0x1526
 void do_backtrace(bool fatal) {
-    void* array[20];
-    char** strings;
-    int size, i;
-
-    size = backtrace(array, 20);
-    // strings = backtrace_symbols(array, size);
-    if (size >= 0) {
-        fprintf(stderr, "Obtained %d ELF traces.\n", size);
-        for (int i = 0; i < size; ++i) {
-            // parse ELF formatted trace to get CU and DWARF address
-            fprintf(stderr, "%llx\n", (unsigned long long) array[i]);
-        }
-    }
-    free(strings);
+    backtrace_full(backtrace_state, 0, exception_backtrace_full_callback, exception_backtrace_error_callback, NULL);
 
     if (fatal) exit(1);
 }

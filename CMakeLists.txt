@@ -26,10 +26,9 @@ include_directories($ENV{UniversalCRTSdkDir}/Include/10.0.10056.0/ucrt)
 find_package(VulkanHeaders)
 find_package(VulkanLoader)
 
-if (UNIX)
-    find_package(PkgConfig)
-    pkg_check_modules(libbacktrace REQUIRED libbacktrace)
-endif (UNIX)
+# if (UNIX)
+#     find_package(PkgConfig)
+# endif (UNIX)
 
 find_program(GLSL_VALIDATOR glslangValidator HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
 
@@ -126,7 +125,7 @@ if (WIN32)
     target_link_libraries(Main dbghelp legacy_stdio_definitions)
 endif (WIN32)
 if (UNIX)
-    target_link_libraries(Main ${libbacktrace_DEPENDENCIES})
+    target_link_libraries(Main backtrace)
 endif (UNIX)
 
 add_executable(Game src/main.c)
