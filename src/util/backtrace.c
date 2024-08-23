@@ -47,10 +47,7 @@ void force_interrupt() {
 }
 
 #if defined(__linux__)
-#define UNW_LOCAL_ONLY 
-#include <libunwind.h>
-#include <libunwind-ptrace.h>
-#define MAX_BACKTRACE_FRAMES 64
+#include <execinfo.h>
 
 void exception_backtrace_error_callback(void* data, const char* msg, int errnum) {
     printf("Error creating backtrace\nErrno: %i\nMsg: %s\n\n", errnum, msg);
@@ -91,33 +88,22 @@ void init_exceptions(bool threaded) {
     }
 }
 
+// 0x14f0 + 0x36 = 0x1526
 void do_backtrace(bool fatal) {
-    // unw_create_addr_space(&_UPT_accessors, 0);
-    unw_cursor_t cursor; unw_context_t context;
-    unw_word_t offset = 0; unw_word_t sp; unw_word_t ip;
-    char proc_name_buf[1024];
+    void* array[20];
+    char** strings;
+    int size, i;
 
-    unw_getcontext(&context);
-    unw_init_local(&cursor, &context);
-    while (unw_step(&cursor) > 0) {
-        // get the stack frame trace
-        unw_get_reg(&cursor, UNW_REG_IP, &ip);
-        unw_get_reg(&cursor, UNW_REG_SP, &sp);
-        int result = unw_get_proc_name(&cursor, proc_name_buf, 1024, &offset);
-        if (!result) {
-            // print stack frame
-            fprintf(stderr, "Stack frame: %s:%lu, ip:%lx, sp:%lx\n", proc_name_buf, offset, ip, sp);
-        } else if (result == UNW_EUNSPEC) {
-            fprintf(stderr, "Unspecified error printing stack frame\n");
-        } else if (result == UNW_ENOINFO) {
-            fprintf(stderr, "Unable to determine procedure name\n");
-        } else if (result == UNW_ENOMEM) {
-            fprintf(stderr, "Procedure name was too long\n");
-        } else {
-            fprintf(stderr, "Invalid stack frame printing error\n");
+    size = backtrace(array, 20);
+    // strings = backtrace_symbols(array, size);
+    if (size >= 0) {
+        fprintf(stderr, "Obtained %d ELF traces.\n", size);
+        for (int i = 0; i < size; ++i) {
+            // parse ELF formatted trace to get CU and DWARF address
+            fprintf(stderr, "%llx\n", (unsigned long long) array[i]);
         }
     }
-    fprintf(stderr, "Finished printing stack trace\n");
+    free(strings);
 
     if (fatal) exit(1);
 }

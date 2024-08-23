@@ -14,6 +14,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
+if (CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+    set(CMAKE_ENABLE_EXPORTS TRUE)
+endif (CMAKE_BUILD_TYPE STREQUAL "DEBUG")
 
 # Settings for configuring projects generated for an IDE
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -25,7 +28,7 @@ find_package(VulkanLoader)
 
 if (UNIX)
     find_package(PkgConfig)
-    pkg_check_modules(libunwind REQUIRED libunwind)
+    pkg_check_modules(libbacktrace REQUIRED libbacktrace)
 endif (UNIX)
 
 find_program(GLSL_VALIDATOR glslangValidator HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
@@ -123,7 +126,7 @@ if (WIN32)
     target_link_libraries(Main dbghelp legacy_stdio_definitions)
 endif (WIN32)
 if (UNIX)
-    target_link_libraries(Main ${libunwind_LIBRARIES})
+    target_link_libraries(Main ${libbacktrace_DEPENDENCIES})
 endif (UNIX)
 
 add_executable(Game src/main.c)
