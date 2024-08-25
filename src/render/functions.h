@@ -42,10 +42,10 @@ void init_device_functions(VkDevice device);
 // using a macro EXTERN to define these as "extern" via header but as linkable variables
 // via render_functions.c
 #ifdef RC_FUNCTION_DECLARATION
-#define EXTERN extern
+#define EXTERN
 #define INIT = NULL
 #else
-#define EXTERN
+#define EXTERN extern
 #define INIT
 #endif
 
@@ -119,5 +119,6 @@ EXTERN PFN_vkFreeCommandBuffers vkFreeCommandBuffers INIT;
 EXTERN PFN_vkCmdPipelineBarrier2 vkCmdPipelineBarrier2 INIT;
 
 #undef EXTERN
+#undef INIT
 
 #endif // RENDER_FUNCTIONS_H_INCLUDED

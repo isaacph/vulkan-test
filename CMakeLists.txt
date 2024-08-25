@@ -14,14 +14,17 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
-if (CMAKE_BUILD_TYPE STREQUAL "DEBUG")
-    set(CMAKE_ENABLE_EXPORTS TRUE)
-endif (CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+# this breaks vulkan
+# if (CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+#     set(CMAKE_ENABLE_EXPORTS TRUE)
+# endif (CMAKE_BUILD_TYPE STREQUAL "DEBUG")
 
+if (WIN32)
 # Settings for configuring projects generated for an IDE
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-include_directories($ENV{UniversalCRTSdkDir}/Include/ucrt)
-include_directories($ENV{UniversalCRTSdkDir}/Include/10.0.10056.0/ucrt)
+    set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+    include_directories($ENV{UniversalCRTSdkDir}/Include/ucrt)
+    include_directories($ENV{UniversalCRTSdkDir}/Include/10.0.10056.0/ucrt)
+endif (WIN32)
 
 find_package(VulkanHeaders)
 find_package(VulkanLoader)
@@ -98,10 +101,7 @@ add_custom_target(
 
 configure_file(src/config.h.in config.h)
 add_library(Main STATIC
-    src/main.c
-    src/winmain.c
     src/util/backtrace.c
-    #    src/shader.c
     src/util/memory.c
     src/util/utf8.c
     src/util/utf16.c
@@ -113,6 +113,7 @@ add_library(Main STATIC
     src/render/swapchain.c
     src/render/util.c
     src/render/win32.c
+    src/render/wayland.c
     src/util/stack.c
     )
 add_dependencies(Main Shaders)

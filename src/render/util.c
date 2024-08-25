@@ -3,6 +3,7 @@
 #include "util.h"
 #include <vulkan/vulkan_core.h>
 #include "../util/backtrace.h"
+#include <assert.h>
 #define VK_API_VERSION_BUFFER_PRETTY_PRINT_LEN 64
 #define RENDER_MAX_ERR_MSG_LENGTH 128
 
@@ -10,11 +11,8 @@ void calc_VK_API_VERSION(uint32_t version, char* out_memory, uint32_t out_len);
 void print_VkExtensionProperties(uint32_t count, VkExtensionProperties* extensions);
 void print_VkLayerProperties(uint32_t count, VkLayerProperties* layers);
 
-// invariant: out_len >= VK_API_VERSION_BUFFER_PRETTY_PRINT_LEN (64)
 void calc_VK_API_VERSION(uint32_t version, char* out_memory, uint32_t out_len) {
-    if (out_len < VK_API_VERSION_BUFFER_PRETTY_PRINT_LEN) {
-        exception_msg("Invalid output buffer length");
-    }
+    assert(out_len >= VK_API_VERSION_BUFFER_PRETTY_PRINT_LEN);
     uint32_t variant = VK_API_VERSION_VARIANT(version);
     uint32_t major = VK_API_VERSION_MAJOR(version);
     uint32_t minor = VK_API_VERSION_MINOR(version);

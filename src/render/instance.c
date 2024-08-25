@@ -10,7 +10,7 @@
 
 const char* const ENABLE_EXTENSIONS[] = {
     "VK_KHR_surface", // rendering to monitors
-    "VK_KHR_win32_surface",
+    // "VK_KHR_win32_surface",
     "VK_KHR_get_surface_capabilities2", // it doesn't seem to care whether we enable this but oh well
     "VK_EXT_swapchain_colorspace",
     "VK_EXT_debug_utils",

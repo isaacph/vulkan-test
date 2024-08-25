@@ -1,6 +1,5 @@
 #define RC_FUNCTION_DECLARATION
 #include "functions.h"
-#include <vulkan/vulkan_core.h>
 #include <stdlib.h>
 #include "util/backtrace.h"
 

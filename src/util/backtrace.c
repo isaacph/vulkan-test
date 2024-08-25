@@ -75,10 +75,8 @@ void init_exceptions(bool threaded) {
         SIGSEGV,
         SIGTERM,
     };
-    printf("Init signals\n");
     for (int i = 0; i < sizeof(signals) / sizeof(signals[0]); ++i) {
         int signal = signals[i];
-        printf("Init signal %d\n", signal);
         struct sigaction action = {
             .sa_handler = NULL,
             .sa_sigaction = sigAction,
