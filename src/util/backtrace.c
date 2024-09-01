@@ -39,7 +39,7 @@ void exception_msg(const char* message) {
 }
 
 void exception() {
-    fprintf(stderr, "Unlabeled exception\n");
+    fprintf(stderr, "Manual exception\n");
     force_interrupt();
 }
 

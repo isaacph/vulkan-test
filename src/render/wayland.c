@@ -6,7 +6,7 @@
 #include "../util/backtrace.h"
 
 // this is slightly overwhelming so let's break it down
-// 1. load a DLL and get proc address for linux
+// 1. load a DLL and get proc address for linux - complete
 // 2. figure out all the wayland extensions we need to display a window
 // 3. initialize wayland
 // 4. initialize each extension

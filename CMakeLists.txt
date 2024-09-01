@@ -97,6 +97,39 @@ add_custom_target(
       ${SHADERS_GENERATED}
     )
 
+# generate wayland protocol headers and source library
+if (UNIX)
+    set(WAYLAND_EXTENSION_DIR "/usr/share/wayland-protocols") # TODO: get this from pkgconfig (but this is probably fine for a while)
+    list(APPEND WAYLAND_EXTENSIONS "${WAYLAND_EXTENSION_DIR}/stable/xdg-shell/xdg-shell.xml:xdg_shell")
+    list(APPEND WAYLAND_EXTENSIONS "${WAYLAND_EXTENSION_DIR}/stable/linux-dmabuf/linux-dmabuf-v1.xml:linux-dmabuf-v1")
+    set(WAYLAND_GENERATED "${PROJECT_BINARY_DIR}/wayland_generated")
+    foreach (pair IN LISTS WAYLAND_EXTENSIONS)
+        string(FIND "${pair}" ":" pos)
+        if (pos LESS 1)
+            message(WARNING "Skipping malformed pair (no var name): ${pair}")
+        else ()
+            string(SUBSTRING "${pair}" 0 "${pos}" path)
+            math(EXPR pos "${pos} + 1")  # Skip the separator
+            string(SUBSTRING "${pair}" "${pos}" -1 name)
+            add_custom_command(
+                OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/include/${name}.h" 
+                COMMAND wayland-scanner -s client-header < ${path} > "${CMAKE_CURRENT_BINARY_DIR}/include/${name}.h")
+            add_custom_command(
+                OUTPUT "${WAYLAND_GENERATED}/${name}.c" 
+                COMMAND mkdir -p ${WAYLAND_GENERATED} && wayland-scanner -s private-code < ${path} > "${WAYLAND_GENERATED}/${name}.c")
+            add_custom_target(
+                "WaylandProtocolGenerate_${name}"
+                DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/include/${name}.h" "${WAYLAND_GENERATED}/${name}.c" ${WAYLAND_GENERATED_prev})
+            set(WAYLAND_GENERATED_prev "WaylandProtocolGenerate_${name}")
+            list(APPEND WAYLAND_EXTENSIONS_SRC "${WAYLAND_GENERATED}/${name}.c")
+        endif ()
+    endforeach()
+    add_library(WaylandProtocol STATIC
+        ${WAYLAND_EXTENSIONS_SRC})
+    target_include_directories(WaylandProtocol PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/include")
+    add_dependencies(WaylandProtocol ${WAYLAND_GENERATED_prev})
+endif (UNIX)
+
 # set(SUBSYSTEM_LINKER_OPTIONS "/SUBSYSTEM:WINDOWS")
 
 configure_file(src/config.h.in config.h)
@@ -116,17 +149,18 @@ add_library(Main STATIC
     src/render/wayland.c
     src/util/stack.c
     )
-add_dependencies(Main Shaders)
+add_dependencies(Main Shaders WaylandProtocol)
 target_include_directories(Main PUBLIC src)
 target_include_directories(Main PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/include")
 target_link_libraries(Main
     Vulkan::Headers
+    sodium
     )
 if (WIN32)
     target_link_libraries(Main dbghelp legacy_stdio_definitions)
 endif (WIN32)
 if (UNIX)
-    target_link_libraries(Main backtrace)
+    target_link_libraries(Main backtrace wayland-client WaylandProtocol)
 endif (UNIX)
 
 add_executable(Game src/main.c)
