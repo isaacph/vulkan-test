@@ -6,12 +6,15 @@
 #include "win32.h"
 #include <windows.h>
 #include <stdio.h>
+#include "util/utf.h"
+#include <assert.h>
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lparam);
-
-// convert to and from wchar, malloc-ing a resource for the result
-static void unicode_to_wchar(const char* unicode, int len, wchar_t* out, int* out_len);
-static void wchar_to_unicode(const wchar_t* wchar, int len, const char* out, int* out_len);
+static void onDestroyWin32(void* ignored);
+typedef struct SurfaceDestroyInfo {
+    VkInstance instance;
+    VkSurfaceKHR surface;
+} SurfaceDestroyInfo;
 
 PFN_vkGetInstanceProcAddr rc_proc_addr() {
     PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr = NULL;
@@ -59,15 +62,27 @@ InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
     wc.hbrBackground = GetStockObject(WHITE_BRUSH);
     RegisterClassW(&wc);
 
-    // Create the window.
+    // window name
+    wchar_t windowName[40];
+    int windowNameLength;
+    assert(!utf8_to_utf16(params.title, params.titleLength, windowName, 40, &windowNameLength));
+
+    // window size
+    int width = CW_USEDEFAULT, height = CW_USEDEFAULT;
+    if (params.size.width != DEFAULT_SURFACE_SIZE.width || params.size.height != DEFAULT_SURFACE_SIZE.height) {
+        width = params.size.width;
+        height = params.size.height;
+    }
+
+    // window handle
     HWND hwnd = CreateWindowEx(
         0,                              // Optional window styles.
         CLASS_NAME,                     // Window class
-        L"Learn to Program Windows",    // Window text
+        windowName,    // Window text
         WS_OVERLAPPEDWINDOW,            // Window style
 
         // Size and position
-        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+        CW_USEDEFAULT, CW_USEDEFAULT, width, height,
 
         NULL,       // Parent window    
         NULL,       // Menu
@@ -94,6 +109,14 @@ InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
     };
     check(vkCreateWin32SurfaceKHR(params.instance, &createInfo, NULL, &surface));
 
+    // add to destroy cache
+    SurfaceDestroyInfo* destroyInfo = checkMalloc(malloc(sizeof(SurfaceDestroyInfo)));
+    *destroyInfo = (SurfaceDestroyInfo) {
+        .instance = params.instance,
+        .surface = surface,
+    };
+    StaticCache_add(cleanup, onDestroyWin32, (void*) destroyInfo);
+
     return (InitSurface) {
         .windowHandle = (WindowHandle) {
             .hInstance = NULL,
@@ -103,89 +126,13 @@ InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
     };
 }
 
-RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
-    // load the Vulkan loader
-    PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr = rc_proc_addr();
-    StaticCache cleanup = StaticCache_init(1000);
+static void onDestroyWin32(void* castToSurface) {
+    SurfaceDestroyInfo* destroyInfo = (SurfaceDestroyInfo*) castToSurface;
 
-    RenderContext context = {
-        // make render context for later use
-        .instance = VK_NULL_HANDLE,
-        .physicalDevice = VK_NULL_HANDLE,
-        .device = VK_NULL_HANDLE,
-        .surface = VK_NULL_HANDLE, // defined by platform-specific code
-        .swapchain = VK_NULL_HANDLE,
-        .surfaceFormat = {0},
-        .swapchainExtent = {0},
-        .graphicsQueue = VK_NULL_HANDLE,
-        .graphicsQueueFamily = 0,
-        .frameNumber = 0,
-        .frames = {0},
-        .images = {0},
-    };
-    FrameData emptyFrame = {
-        .commandPool = VK_NULL_HANDLE,
-        .mainCommandBuffer = VK_NULL_HANDLE,
-        .swapchainSemaphore = VK_NULL_HANDLE,
-        .renderSemaphore = VK_NULL_HANDLE,
-        .renderFence = VK_NULL_HANDLE,
-    };
-    SwapchainImageData emptyImage = {
-        .swapchainImage = VK_NULL_HANDLE,
-        .swapchainImageView = VK_NULL_HANDLE,
-    };
-    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
-        context.frames[i] = emptyFrame;
-        context.images[i] = emptyImage;
-    }
+    vkDestroySurfaceKHR(destroyInfo->instance, destroyInfo->surface, NULL);
+    CoUninitialize();
 
-    // call instance init
-    {
-        InitInstance initInstance = rc_init_instance(fp_vkGetInstanceProcAddr, true, &cleanup);
-        context.instance = initInstance.instance;
-    }
-
-    // make win32 surface
-    {
-        VkWin32SurfaceCreateInfoKHR createInfo = {
-            .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-            .pNext = NULL,
-            .flags = 0,
-            .hinstance = hInstance,
-            .hwnd = hwnd,
-        };
-        check(vkCreateWin32SurfaceKHR(context.instance, &createInfo, NULL, &context.surface));
-    }
-    printf("Created win32 surface\n");
-
-    // make device
-    {
-        InitDevice initDevice = rc_init_device((InitDeviceParams) {
-            .instance = context.instance,
-            .surface = context.surface,
-            .surfaceFormat = context.surfaceFormat,
-        });
-        context.physicalDevice = initDevice.physicalDevice;
-        context.device = initDevice.device;
-        context.graphicsQueue = initDevice.queue;
-        context.graphicsQueueFamily = initDevice.graphicsQueueFamily;
-    }
-
-    // set up the swapchain
-    rc_configure_swapchain(&context);
-    printf("Configured swapchain\n");
-    rc_init_swapchain(&context, 100, 100);
-    printf("Created swapchain\n");
-    // rc_init_render_pass(&context);
-    // printf("Created render pass\n");
-    // rc_init_framebuffers(&context);
-    // printf("Created framebuffers\n");
-    rc_init_loop(&context);
-    printf("Created things for the loop\n");
-    // rc_init_pipelines(&context);
-    // printf("Initialized pipelines\n");
-
-    return context;
+    free(destroyInfo);
 }
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -225,6 +172,91 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
     }
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
+
+// RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
+//     // load the Vulkan loader
+//     PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr = rc_proc_addr();
+//     StaticCache cleanup = StaticCache_init(1000);
+// 
+//     RenderContext context = {
+//         // make render context for later use
+//         .instance = VK_NULL_HANDLE,
+//         .physicalDevice = VK_NULL_HANDLE,
+//         .device = VK_NULL_HANDLE,
+//         .surface = VK_NULL_HANDLE, // defined by platform-specific code
+//         .swapchain = VK_NULL_HANDLE,
+//         .surfaceFormat = {0},
+//         .swapchainExtent = {0},
+//         .graphicsQueue = VK_NULL_HANDLE,
+//         .graphicsQueueFamily = 0,
+//         .frameNumber = 0,
+//         .frames = {0},
+//         .images = {0},
+//     };
+//     FrameData emptyFrame = {
+//         .commandPool = VK_NULL_HANDLE,
+//         .mainCommandBuffer = VK_NULL_HANDLE,
+//         .swapchainSemaphore = VK_NULL_HANDLE,
+//         .renderSemaphore = VK_NULL_HANDLE,
+//         .renderFence = VK_NULL_HANDLE,
+//     };
+//     SwapchainImageData emptyImage = {
+//         .swapchainImage = VK_NULL_HANDLE,
+//         .swapchainImageView = VK_NULL_HANDLE,
+//     };
+//     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+//         context.frames[i] = emptyFrame;
+//         context.images[i] = emptyImage;
+//     }
+// 
+//     // call instance init
+//     {
+//         InitInstance initInstance = rc_init_instance(fp_vkGetInstanceProcAddr, true, &cleanup);
+//         context.instance = initInstance.instance;
+//     }
+// 
+//     // make win32 surface
+//     {
+//         VkWin32SurfaceCreateInfoKHR createInfo = {
+//             .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+//             .pNext = NULL,
+//             .flags = 0,
+//             .hinstance = hInstance,
+//             .hwnd = hwnd,
+//         };
+//         check(vkCreateWin32SurfaceKHR(context.instance, &createInfo, NULL, &context.surface));
+//     }
+//     printf("Created win32 surface\n");
+// 
+//     // make device
+//     {
+//         InitDevice initDevice = rc_init_device((InitDeviceParams) {
+//             .instance = context.instance,
+//             .surface = context.surface,
+//             .surfaceFormat = context.surfaceFormat,
+//         });
+//         context.physicalDevice = initDevice.physicalDevice;
+//         context.device = initDevice.device;
+//         context.graphicsQueue = initDevice.queue;
+//         context.graphicsQueueFamily = initDevice.graphicsQueueFamily;
+//     }
+// 
+//     // set up the swapchain
+//     rc_configure_swapchain(&context);
+//     printf("Configured swapchain\n");
+//     rc_init_swapchain(&context, 100, 100);
+//     printf("Created swapchain\n");
+//     // rc_init_render_pass(&context);
+//     // printf("Created render pass\n");
+//     // rc_init_framebuffers(&context);
+//     // printf("Created framebuffers\n");
+//     rc_init_loop(&context);
+//     printf("Created things for the loop\n");
+//     // rc_init_pipelines(&context);
+//     // printf("Initialized pipelines\n");
+// 
+//     return context;
+// }
 
 
 

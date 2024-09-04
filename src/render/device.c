@@ -13,7 +13,12 @@ const char* const ENABLE_DEVICE_EXTENSIONS[] = {
 };
 const size_t ENABLE_DEVICE_EXTENSIONS_COUNT = 1;
 
-InitDevice rc_init_device(InitDeviceParams params) {
+static void on_destroy_device(void* ptr) {
+    VkDevice device = (VkDevice) ptr;
+    vkDestroyDevice(device, NULL);
+}
+
+InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
     if (params.surface == VK_NULL_HANDLE) {
         exception_msg("Surface must be initialized before device can be initialized (reason: used to decide which physical device supports the surface)\n");
     }
@@ -237,6 +242,7 @@ InitDevice rc_init_device(InitDeviceParams params) {
 
     free(layers);
 
+    StaticCache_add(cleanup, on_destroy_device, (void*) device);
     return (InitDevice) {
         .physicalDevice = chosenPhysicalDevice,
         .device = device,

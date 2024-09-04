@@ -459,7 +459,6 @@ bool utf8_to_utf16(const char* utf8, int utf8_len, wchar* out, int out_buf_len, 
         codepoint_t codepoint;
         assert(in_index + length <= utf8_len);
         utf8_to_codepoint_unchecked_at(utf8 + in_index, length, &codepoint);
-        printf("codepoint: %x\n", codepoint);
         uint8_t out_length = codepoint_to_utf16_at(codepoint, out + out_index, out_buf_len - out_index);
         if(out_length == 0) {
             // out of space

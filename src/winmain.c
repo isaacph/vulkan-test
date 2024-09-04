@@ -26,16 +26,16 @@ bool disableDraw = false;
 bool running = true;
 
 void draw(HWND hwnd) {
-    if (resetDrawBounds) {
-        RECT rect;
-        if (GetClientRect(hwnd, &rect)) {
-            uint32_t width = rect.right - rect.left;
-            uint32_t height = rect.bottom - rect.top;
-            rc_size_change(&renderContext, width, height);
-        }
-        resetDrawBounds = false;
-    }
-    rc_draw(&renderContext);
+    // if (resetDrawBounds) {
+    //     RECT rect;
+    //     if (GetClientRect(hwnd, &rect)) {
+    //         uint32_t width = rect.right - rect.left;
+    //         uint32_t height = rect.bottom - rect.top;
+    //         rc_size_change(&renderContext, width, height);
+    //     }
+    //     resetDrawBounds = false;
+    // }
+    // rc_draw(&renderContext);
 }
 
 // int WinMain(
@@ -90,7 +90,7 @@ int winmain() {
         return 0;
     }
 
-    renderContext = rc_init_win32(hInstance, hwnd);
+    // renderContext = rc_init_win32(hInstance, hwnd);
 
     ShowWindow(hwnd, SW_SHOW);
 
@@ -108,7 +108,7 @@ int winmain() {
         }
     }
 
-    rc_destroy(&renderContext);
+    // rc_destroy(&renderContext);
     CoUninitialize();
     return 0;
 }

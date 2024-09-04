@@ -148,19 +148,20 @@ add_library(Main STATIC
     src/render/win32.c
     src/render/wayland.c
     src/util/stack.c
+    src/winmain.c
     )
-add_dependencies(Main Shaders WaylandProtocol)
+add_dependencies(Main Shaders)
 target_include_directories(Main PUBLIC src)
 target_include_directories(Main PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/include")
 target_link_libraries(Main
     Vulkan::Headers
-    sodium
     )
 if (WIN32)
     target_link_libraries(Main dbghelp legacy_stdio_definitions)
 endif (WIN32)
 if (UNIX)
-    target_link_libraries(Main backtrace wayland-client WaylandProtocol)
+    target_link_libraries(Main backtrace wayland-client WaylandProtocol sodium)
+    add_dependencies(Main WaylandProtocol)
 endif (UNIX)
 
 add_executable(Game src/main.c)

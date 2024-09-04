@@ -10,7 +10,7 @@
 
 const char* const ENABLE_EXTENSIONS[] = {
     "VK_KHR_surface", // rendering to monitors
-    // "VK_KHR_win32_surface",
+    "VK_KHR_win32_surface", // TODO: make this array change based on platform
     "VK_KHR_get_surface_capabilities2", // it doesn't seem to care whether we enable this but oh well
     "VK_EXT_swapchain_colorspace",
     "VK_EXT_debug_utils",
@@ -27,7 +27,7 @@ const size_t ENABLE_LAYERS_COUNT = 0;
 
 void cleanup_instance(void* user_ptr) {
     printf("Instance cleaned up\n");
-    vkDestroyInstance(*((VkInstance*) user_ptr), NULL);
+    vkDestroyInstance((VkInstance) user_ptr, NULL);
 }
 
 InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr, bool debug, StaticCache* cleanup) {
@@ -169,7 +169,7 @@ InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr
     //     renderContext.images[i] = emptyImage;
     // }
 
-    StaticCache_add(cleanup, cleanup_instance, (void*) &instance);
+    StaticCache_add(cleanup, cleanup_instance, (void*) instance);
 
     return (InitInstance) {
         .instance = instance,

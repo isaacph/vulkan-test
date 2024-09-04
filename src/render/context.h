@@ -54,17 +54,21 @@ typedef struct InitInstance {
 InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr, bool debug, StaticCache* cleanup);
 
 // implementation and WindowHandle are per OS
+typedef struct SurfaceSize {
+    int width;
+    int height;
+} SurfaceSize;
+static const SurfaceSize DEFAULT_SURFACE_SIZE = { .width = INT_MIN, .height = INT_MIN };
 typedef void (*OnWindowFunction)(void*);
 typedef struct InitSurfaceParams {
     VkInstance instance;
     const char* title;
-    int width;
-    int height;
+    int titleLength;
+    SurfaceSize size;
 } InitSurfaceParams;
 typedef struct InitSurface {
     WindowHandle windowHandle;
     VkSurfaceKHR surface;
-    void* user;
 } InitSurface;
 InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup);
 
@@ -79,7 +83,7 @@ typedef struct InitDevice {
     VkQueue queue;
     uint32_t graphicsQueueFamily;
 } InitDevice;
-InitDevice rc_init_device(InitDeviceParams params);
+InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup);
 
 
 void rc_swapchain_configure(RenderContext* renderContext);

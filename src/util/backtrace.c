@@ -5,13 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <backtrace.h>
+#include "backtrace.h"
 
 #if defined(_WIN32)
-#include <minwindef.h>
+#include <windows.h>
 #include <winnt.h>
 #include <dbghelp.h>
-#include <windows.h>
 #include <errhandlingapi.h>
 #include <excpt.h>
 #endif
