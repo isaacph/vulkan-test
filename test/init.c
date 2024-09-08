@@ -19,14 +19,8 @@ static void calc_VK_API_VERSION(uint32_t version, char* out_memory, uint32_t out
     }
 }
 
-StaticCache cleanup;
-
-void setUp(void) {
-    cleanup = StaticCache_init(1000);
-}
-void tearDown(void) {
-    StaticCache_clean_up(&cleanup);
-}
+void setUp(void) {}
+void tearDown(void) {}
 
 // void test_minimal_instance_versions(void) {
 //     void* vulkan_handle = dlopen("libvulkan.so", RTLD_LAZY);
@@ -49,6 +43,7 @@ void test_init_proc_addr(void) {
 }
 
 void test_init_instance(void) {
+    StaticCache cleanup = StaticCache_init(1000);
     VkInstance instance = VK_NULL_HANDLE;
 
     void* p = vkEnumerateInstanceVersion;
@@ -58,10 +53,13 @@ void test_init_instance(void) {
         instance = init.instance;
         assert(instance != VK_NULL_HANDLE);
     }
+    StaticCache_clean_up(&cleanup);
 }
 
+// this test should flash because we have headless = false
 void test_init_surface(void) {
     VkInstance instance = VK_NULL_HANDLE;
+    StaticCache cleanup = StaticCache_init(1000);
 
     {
         PFN_vkGetInstanceProcAddr proc_addr = rc_proc_addr();
@@ -76,13 +74,16 @@ void test_init_surface(void) {
             .title = title,
             .titleLength = strlen(title),
             .size = DEFAULT_SURFACE_SIZE,
+            .headless = false,
         };
         InitSurface ret = rc_init_surface(params, &cleanup);
         assert(ret.surface != VK_NULL_HANDLE);
     }
+    StaticCache_clean_up(&cleanup);
 }
 
 void test_init_device(void) {
+    StaticCache cleanup = StaticCache_init(1000);
     VkInstance instance = VK_NULL_HANDLE;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     WindowHandle windowHandle = {0};
@@ -99,6 +100,7 @@ void test_init_device(void) {
             .title = title,
             .titleLength = strlen(title),
             .size = DEFAULT_SURFACE_SIZE,
+            .headless = true,
         };
         InitSurface ret = rc_init_surface(params, &cleanup);
         surface = ret.surface;
@@ -106,16 +108,84 @@ void test_init_device(void) {
         assert(surface != NULL);
     }
     {
+        // so we need to refactor the logic so that surface format is chosen when physical device is chosen
         InitDeviceParams params = {
             .instance = instance,
             .surface = surface,
-            .surfaceFormat = surface,
         };
         InitDevice ret = rc_init_device(params, &cleanup);
         assert(ret.device != NULL);
     }
+    StaticCache_clean_up(&cleanup);
 }
 
+void test_init_swapchain(void) {
+    StaticCache cleanup = StaticCache_init(1000);
+    VkInstance instance = VK_NULL_HANDLE;
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    WindowHandle windowHandle = { 0 };
+    VkDevice device = VK_NULL_HANDLE;
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    VkExtent2D size = { 0 };
+    VkSurfaceFormatKHR surfaceFormat = { 0 };
+    uint32_t graphicsQueueFamily = 0;
+    // VkQueue queue = VK_NULL_HANDLE;
+    {
+        PFN_vkGetInstanceProcAddr proc_addr = rc_proc_addr();
+        InitInstance init = rc_init_instance(proc_addr, false, &cleanup);
+        instance = init.instance;
+        assert(instance != VK_NULL_HANDLE);
+    }
+    {
+        const char* title = "Test window! \xF0\x9F\x87\xBA\xF0\x9F\x87\xB8";
+        InitSurfaceParams params = {
+            .instance = instance,
+            .title = title,
+            .titleLength = strlen(title),
+            .size = DEFAULT_SURFACE_SIZE,
+            .headless = true,
+        };
+        InitSurface ret = rc_init_surface(params, &cleanup);
+        surface = ret.surface;
+        windowHandle = ret.windowHandle;
+        size = ret.size;
+        assert(surface != NULL);
+        assert(size.width != 0);
+        assert(size.height != 0);
+        assert(size.width != DEFAULT_SURFACE_SIZE.width && size.height != DEFAULT_SURFACE_SIZE.height);
+    }
+    {
+        // so we need to refactor the logic so that surface format is chosen when physical device is chosen
+        InitDeviceParams params = {
+            .instance = instance,
+            .surface = surface,
+        };
+        InitDevice ret = rc_init_device(params, &cleanup);
+        device = ret.device;
+        surfaceFormat = ret.surfaceFormat;
+        graphicsQueueFamily = ret.graphicsQueueFamily;
+        physicalDevice = ret.physicalDevice;
+        assert(ret.device != NULL);
+    }
+    {
+        InitSwapchainParams params = {
+            .extent = size,
+
+            .device = device,
+            .physicalDevice = physicalDevice,
+            .surface = surface,
+            .surfaceFormat = surfaceFormat,
+            .graphicsQueueFamily = graphicsQueueFamily,
+
+            .oldSwapchain = VK_NULL_HANDLE,
+            .oldImages = { 0 },
+            .swapchainCleanupHandle = SC_ID_NONE,
+        };
+        InitSwapchain ret = rc_init_swapchain(params, &cleanup);
+        assert(ret.swapchain != NULL);
+    }
+    StaticCache_clean_up(&cleanup);
+}
 
 int main() {
     init_exceptions(false);
@@ -124,6 +194,8 @@ int main() {
     RUN_TEST(test_init_proc_addr);
     RUN_TEST(test_init_instance);
     RUN_TEST(test_init_surface);
+    RUN_TEST(test_init_device);
+    RUN_TEST(test_init_swapchain);
     return UNITY_END();
 }
 

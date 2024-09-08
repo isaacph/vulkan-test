@@ -13,7 +13,7 @@ const char* const ENABLE_DEVICE_EXTENSIONS[] = {
 };
 const size_t ENABLE_DEVICE_EXTENSIONS_COUNT = 1;
 
-static void on_destroy_device(void* ptr) {
+static void on_destroy_device(void* ptr, sc_t id) {
     VkDevice device = (VkDevice) ptr;
     vkDestroyDevice(device, NULL);
 }
@@ -25,10 +25,11 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
 
     VkInstance instance = params.instance;
     VkSurfaceKHR surface = params.surface;
-    VkSurfaceFormatKHR surfaceFormat = params.surfaceFormat;
     VkPhysicalDevice chosenPhysicalDevice = NULL;
     VkDevice device = NULL;
     VkQueue queue = NULL;
+    VkSurfaceFormatKHR surfaceFormat = {0};
+    VkSurfaceCapabilitiesKHR surfaceCapabilities = {0};
 
     // we're going to need to enumerate layers again
     uint32_t layersCount = 0;
@@ -60,6 +61,29 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
         // if (!validateDeviceSurfaceCapabilities(device, surface)) {
         //     printf("Device/surface pair does not have sufficient capabilities");
         // }
+        // get formats, choose the basic one lol
+        bool chosen = false;
+        uint32_t pSurfaceFormatCount;
+        VkSurfaceFormatKHR* pSurfaceFormats;
+        check(vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &pSurfaceFormatCount, NULL));
+        pSurfaceFormats = malloc(pSurfaceFormatCount * sizeof(VkSurfaceFormatKHR));
+        checkMalloc(pSurfaceFormats);
+        check(vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &pSurfaceFormatCount, pSurfaceFormats));
+        for (uint32_t i = 0; i < pSurfaceFormatCount; ++i) {
+            VkSurfaceFormatKHR* format = &pSurfaceFormats[i];
+            if (format->format == VK_FORMAT_B8G8R8A8_SRGB &&
+                    format->colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+                surfaceFormat = *format;
+                chosen = true;
+                break;
+            }
+        }
+        if (!chosen) {
+            printf("Queue family %i does not support the required surface "
+                    "format VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR\n",
+                    i);
+            continue;
+        }
 
         // check for queue family flag support
         // set first supported queue family to foundQFIndex
@@ -119,6 +143,9 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
         }
     }
     free(pPhysicalDevices);
+    if (chosenPhysicalDevice == VK_NULL_HANDLE) {
+        exception_msg("No suitable graphics card found\n");
+    }
 
     // check device extensions
     // using chosenPhysicalDevice
@@ -153,18 +180,18 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
             }
         }
 
-        // log layer extensions
-        if (layerName == NULL) layerName = "DEFAULT";
-        printf("-- Layer %s extensions --\n", layerName);
-        int countLimit = 200;
-        for (int i = 0; i < MIN(countLimit, (int) propertyCount); ++i) {
-            VkExtensionProperties* property = &properties[i];
-            printf("%s v%u\n", property->extensionName, property->specVersion);
-        }
-        if (propertyCount > countLimit) {
-            printf("%i more...\n", propertyCount - countLimit);
-        }
-        printf("-- End Device Extension List --\n");
+        // // log layer extensions
+        // if (layerName == NULL) layerName = "DEFAULT";
+        // printf("-- Layer %s extensions --\n", layerName);
+        // int countLimit = 200;
+        // for (int i = 0; i < MIN(countLimit, (int) propertyCount); ++i) {
+        //     VkExtensionProperties* property = &properties[i];
+        //     printf("%s v%u\n", property->extensionName, property->specVersion);
+        // }
+        // if (propertyCount > countLimit) {
+        //     printf("%i more...\n", propertyCount - countLimit);
+        // }
+        // printf("-- End Device Extension List --\n");
 
         free(properties);
     }
@@ -181,6 +208,38 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
     }
     printf("Contains all required Vulkan device extensions\n"); 
 
+    // grab the min/max supported surface sizes
+    {
+        void* pNext = NULL;
+        // with VK_EXT_surface_maintenance1
+        VkSurfacePresentModeEXT c4 = {
+            .sType = VK_STRUCTURE_TYPE_SURFACE_PRESENT_MODE_EXT,
+            .pNext = pNext,
+            .presentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR,
+        };
+        pNext = &c4;
+        // VK_KHR_get_surface_capabilities2
+        VkPhysicalDeviceSurfaceInfo2KHR info = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR,
+            .pNext = pNext,
+            .surface = surface,
+        };
+        pNext = NULL;
+        // doesn't seem useful rn
+        // // with VK_KHR_surface_protected_capabilities
+        // VkSurfaceProtectedCapabilitiesKHR c1 = {
+        //     .sType = VK_STRUCTURE_TYPE_SURFACE_PROTECTED_CAPABILITIES_KHR,
+        //     .pNext = pNext,
+        // };
+        // pNext = &c1;
+        VkSurfaceCapabilities2KHR capabilities = {
+            .sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR,
+            .pNext = pNext,
+        };
+        check(vkGetPhysicalDeviceSurfaceCapabilities2KHR(chosenPhysicalDevice, &info, &capabilities));
+        surfaceCapabilities = capabilities.surfaceCapabilities;
+    }
+
     // check for available features and make feature request
     VkPhysicalDeviceFeatures2 features = {0};
     {
@@ -195,15 +254,16 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
     }
 
     // check for format properties
-    {
-        VkFormatProperties2 formatProperties = {
-            .sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,
-            .pNext = NULL,
-        };
-        vkGetPhysicalDeviceFormatProperties2(chosenPhysicalDevice, surfaceFormat.format, &formatProperties);
-        // TODO: check for enough format properties?
-        // validateFormatProperties(&formatProperties);
-    }
+    // TODO: we don't have a prechosen format. do an algo here instead of swapchain init to choose it better
+    // {
+    //     VkFormatProperties2 formatProperties = {
+    //         .sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,
+    //         .pNext = NULL,
+    //     };
+    //     vkGetPhysicalDeviceFormatProperties2(chosenPhysicalDevice, surfaceFormat.format, &formatProperties);
+    //     // TODO: check for enough format properties?
+    //     // validateFormatProperties(&formatProperties);
+    // }
 
     // finally create the device
     {
@@ -248,5 +308,7 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
         .device = device,
         .queue = queue,
         .graphicsQueueFamily = graphicsQueueFamily,
+        .surfaceFormat = surfaceFormat,
+        .surfaceCapabilities = surfaceCapabilities,
     };
 }

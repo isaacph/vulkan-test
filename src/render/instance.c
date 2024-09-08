@@ -25,7 +25,7 @@ const char* const ENABLE_LAYERS[] = {
 const size_t ENABLE_LAYERS_COUNT = 0;
 
 
-void cleanup_instance(void* user_ptr) {
+void cleanup_instance(void* user_ptr, sc_t id) {
     printf("Instance cleaned up\n");
     vkDestroyInstance((VkInstance) user_ptr, NULL);
 }
@@ -189,7 +189,7 @@ void rc_destroy(RenderContext* context) {
         vkDestroySemaphore(context->device, context->frames[i].renderSemaphore, NULL);
         vkDestroyFence(context->device, context->frames[i].renderFence, NULL);
     }
-    vkDestroyImageView(context->device, context->drawImage.imageView, NULL);
+    // vkDestroyImageView(context->device, context->drawImage.imageView, NULL);
     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
         if (context->images[i].swapchainImageView != VK_NULL_HANDLE) {
             vkDestroyImageView(

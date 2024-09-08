@@ -148,6 +148,7 @@ add_library(Main STATIC
     src/render/win32.c
     src/render/wayland.c
     src/util/stack.c
+    src/util/uuid.c
     src/winmain.c
     )
 add_dependencies(Main Shaders)
@@ -157,7 +158,7 @@ target_link_libraries(Main
     Vulkan::Headers
     )
 if (WIN32)
-    target_link_libraries(Main dbghelp legacy_stdio_definitions)
+    target_link_libraries(Main dbghelp legacy_stdio_definitions Rpcrt4)
 endif (WIN32)
 if (UNIX)
     target_link_libraries(Main backtrace wayland-client WaylandProtocol sodium)

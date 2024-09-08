@@ -8,7 +8,9 @@
 void* checkMalloc(void* ptr);
 
 // first memory management goal: deletion cache (deletes everything at the end)
-typedef void (*CleanUpCallback)(void* user_ptr);
+typedef uint32_t sc_t;
+static const sc_t SC_ID_NONE = UINT32_MAX;
+typedef void (*CleanUpCallback)(void* user_ptr, sc_t id);
 typedef struct CleanUpEntry {
     CleanUpCallback callback;
     void* user_ptr;
@@ -19,8 +21,16 @@ typedef struct StaticCache {
     int index;
 } StaticCache;
 
+void StaticCache_noop_func(void* user_ptr, sc_t id);
+static const CleanUpCallback StaticCache_noop = StaticCache_noop_func;
+
 StaticCache StaticCache_init(int size);
-void StaticCache_add(StaticCache* cache, CleanUpCallback callback, void* user_ptr);
+sc_t StaticCache_add(StaticCache* cache, CleanUpCallback callback, void* user_ptr);
+// replaces the current cleanup callback at the position of id with a new one
+// also calls the old one
+// acts the same as StaticCache_add if id == SC_ID_NONE
+sc_t StaticCache_put(StaticCache* cache, CleanUpCallback callback, void* user_ptr, sc_t id);
+void StaticCache_clear(StaticCache* cache, sc_t id);
 void StaticCache_clean_up(StaticCache* cache);
 
 // // a stack structure whose memory footprint can be decided at runtime

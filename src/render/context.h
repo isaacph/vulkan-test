@@ -19,14 +19,6 @@ typedef struct SwapchainImageData {
     VkImageView swapchainImageView;
 } SwapchainImageData;
 
-typedef struct AllocatedImage {
-    VkImage image;
-    VkImageView imageView;
-    // insert memory stuff
-    VkExtent3D imageExtent;
-    VkFormat imageFormat;
-} AllocatedImage;
-
 typedef struct RenderContext {
     VkInstance instance;
     VkPhysicalDevice physicalDevice;
@@ -37,12 +29,9 @@ typedef struct RenderContext {
     VkExtent2D swapchainExtent;
     VkQueue graphicsQueue;
     uint32_t graphicsQueueFamily;
-    FrameData frames[RC_SWAPCHAIN_LENGTH];
+    FrameData frames[2];
     SwapchainImageData images[RC_SWAPCHAIN_LENGTH];
     uint64_t frameNumber;
-
-    AllocatedImage drawImage;
-    VkExtent2D drawExtent;
 } RenderContext;
 
 // implementation must be platform-specific
@@ -54,40 +43,74 @@ typedef struct InitInstance {
 InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr, bool debug, StaticCache* cleanup);
 
 // implementation and WindowHandle are per OS
-typedef struct SurfaceSize {
-    int width;
-    int height;
-} SurfaceSize;
-static const SurfaceSize DEFAULT_SURFACE_SIZE = { .width = INT_MIN, .height = INT_MIN };
+static const VkExtent2D DEFAULT_SURFACE_SIZE = { .width = INT_MIN, .height = INT_MIN };
 typedef void (*OnWindowFunction)(void*);
 typedef struct InitSurfaceParams {
     VkInstance instance;
     const char* title;
     int titleLength;
-    SurfaceSize size;
+    VkExtent2D size;
+    bool headless;
 } InitSurfaceParams;
 typedef struct InitSurface {
     WindowHandle windowHandle;
     VkSurfaceKHR surface;
+    VkExtent2D size;
 } InitSurface;
 InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup);
 
 typedef struct InitDeviceParams {
     VkInstance instance;
     VkSurfaceKHR surface;
-    VkSurfaceFormatKHR surfaceFormat;
 } InitDeviceParams;
 typedef struct InitDevice {
     VkPhysicalDevice physicalDevice;
     VkDevice device;
     VkQueue queue;
     uint32_t graphicsQueueFamily;
+    VkSurfaceFormatKHR surfaceFormat;
+    VkSurfaceCapabilitiesKHR surfaceCapabilities;
 } InitDevice;
 InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup);
 
+// configure_swapchain is to be called just once for a window to set up the swapchain
+typedef struct ConfigureSwapchainParams {
+    VkDevice device;
+    VkSurfaceKHR surface;
+    VkSurfaceFormatKHR surfaceFormat;
+    uint32_t graphicsQueueFamily;
+} ConfigureSwapchainParams;
+typedef struct ConfigureSwapchain {
+    FrameData frames[2];
+} ConfigureSwapchain;
+ConfigureSwapchain rc_configure_swapchain(ConfigureSwapchainParams params, StaticCache* cleanup);
 
-void rc_swapchain_configure(RenderContext* renderContext);
-void rc_init_swapchain(RenderContext* renderContext, uint32_t width, uint32_t height);
+// init swapchain is to be called every time the window size changes to rebuild a new swapchain for it
+// invalidates oldSwapchain to reuse its resources if possible via the Vulkan implementation
+typedef struct InitSwapchainParams {
+    // the extent of the window to initialize a swapchain for (will be validated)
+    VkExtent2D extent;
+
+    // setup data
+    VkPhysicalDevice physicalDevice;
+    uint32_t graphicsQueueFamily;
+    VkDevice device;
+    VkSurfaceKHR surface;
+    VkSurfaceFormatKHR surfaceFormat;
+
+    // pass in the swapchain from the previous call for reuse (or VK_NULL_HANDLE if there is none)
+    // these handles will all be deleted and cleared
+    VkSwapchainKHR oldSwapchain;
+    SwapchainImageData oldImages[RC_SWAPCHAIN_LENGTH];
+    sc_t swapchainCleanupHandle;
+} InitSwapchainParams;
+typedef struct InitSwapchain {
+    VkSwapchainKHR swapchain;
+    SwapchainImageData images[RC_SWAPCHAIN_LENGTH];
+    sc_t swapchainCleanupHandle;
+} InitSwapchain;
+InitSwapchain rc_init_swapchain(InitSwapchainParams params, StaticCache* cleanup);
+
 void rc_destroy(RenderContext* renderContext);
 void rc_draw(RenderContext* context);
 void rc_size_change(RenderContext* context, uint32_t width, uint32_t height);

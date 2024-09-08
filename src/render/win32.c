@@ -10,10 +10,11 @@
 #include <assert.h>
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lparam);
-static void onDestroyWin32(void* ignored);
+static void onDestroyWin32(void* ignored, sc_t id);
 typedef struct SurfaceDestroyInfo {
     VkInstance instance;
     VkSurfaceKHR surface;
+    HWND window;
 } SurfaceDestroyInfo;
 
 PFN_vkGetInstanceProcAddr rc_proc_addr() {
@@ -97,7 +98,14 @@ InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
         exception_msg("Invalid window handle");
     }
 
-    ShowWindow(hwnd, SW_SHOW);
+    RECT windowSize;
+    GetClientRect(hwnd, &windowSize);
+    width = windowSize.right - windowSize.left;
+    height = windowSize.bottom - windowSize.top;
+
+    if (!params.headless) {
+        ShowWindow(hwnd, SW_SHOW);
+    }
 
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkWin32SurfaceCreateInfoKHR createInfo = {
@@ -114,6 +122,7 @@ InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
     *destroyInfo = (SurfaceDestroyInfo) {
         .instance = params.instance,
         .surface = surface,
+        .window = hwnd,
     };
     StaticCache_add(cleanup, onDestroyWin32, (void*) destroyInfo);
 
@@ -123,15 +132,20 @@ InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
             .hwnd = NULL,
         },
         .surface = surface,
+        .size = (VkExtent2D) {
+            .width = width,
+            .height = height,
+        },
     };
 }
 
-static void onDestroyWin32(void* castToSurface) {
+static void onDestroyWin32(void* castToSurface, sc_t id) {
     SurfaceDestroyInfo* destroyInfo = (SurfaceDestroyInfo*) castToSurface;
 
     vkDestroySurfaceKHR(destroyInfo->instance, destroyInfo->surface, NULL);
-    CoUninitialize();
 
+    DestroyWindow(destroyInfo->window);
+    CoUninitialize();
     free(destroyInfo);
 }
 
