@@ -6,37 +6,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-// must be called prior to calling rc_init_swapchain
-ConfigureSwapchain rc_configure_swapchain(ConfigureSwapchainParams params, StaticCache* cleanup) {
-    ConfigureSwapchain swapchain = {0};
-    // init command pools and buffers for each frame
-    for (uint32_t index = 0; index < RC_SWAPCHAIN_LENGTH; ++index) {
-        VkCommandPool commandPool = VK_NULL_HANDLE;
-        VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-
-        VkCommandPoolCreateInfo commandPoolCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .queueFamilyIndex = params.graphicsQueueFamily,
-            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-            .pNext = NULL,
-        };
-        check(vkCreateCommandPool(params.device, &commandPoolCreateInfo, NULL, &commandPool));
-
-        VkCommandBufferAllocateInfo cmdAllocInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .pNext = NULL,
-            .commandPool = commandPool,
-            .commandBufferCount = 1,
-            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        };
-        check(vkAllocateCommandBuffers(params.device, &cmdAllocInfo, &commandBuffer));
-
-        swapchain.frames[index].commandPool = commandPool;
-        swapchain.frames[index].mainCommandBuffer = commandBuffer;
-    }
-    return swapchain;
-}
-
 typedef struct SwapchainCleanup {
     VkDevice device;
     VkSwapchainKHR swapchain;

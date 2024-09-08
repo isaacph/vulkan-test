@@ -187,6 +187,200 @@ void test_init_swapchain(void) {
     StaticCache_clean_up(&cleanup);
 }
 
+void test_init_loop(void) {
+    StaticCache cleanup = StaticCache_init(1000);
+    VkInstance instance = VK_NULL_HANDLE;
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    WindowHandle windowHandle = {0};
+    VkDevice device = VK_NULL_HANDLE;
+    uint32_t graphicsQueueFamily = UINT32_MAX;
+    {
+        PFN_vkGetInstanceProcAddr proc_addr = rc_proc_addr();
+        InitInstance init = rc_init_instance(proc_addr, false, &cleanup);
+        instance = init.instance;
+        assert(instance != VK_NULL_HANDLE);
+    }
+    {
+        const char* title = "Test window! \xF0\x9F\x87\xBA\xF0\x9F\x87\xB8";
+        InitSurfaceParams params = {
+            .instance = instance,
+            .title = title,
+            .titleLength = strlen(title),
+            .size = DEFAULT_SURFACE_SIZE,
+            .headless = true,
+        };
+        InitSurface ret = rc_init_surface(params, &cleanup);
+        surface = ret.surface;
+        windowHandle = ret.windowHandle;
+        assert(surface != NULL);
+    }
+    {
+        // so we need to refactor the logic so that surface format is chosen when physical device is chosen
+        InitDeviceParams params = {
+            .instance = instance,
+            .surface = surface,
+        };
+        InitDevice ret = rc_init_device(params, &cleanup);
+        graphicsQueueFamily = ret.graphicsQueueFamily;
+        device = ret.device;
+        assert(device != NULL);
+        assert(graphicsQueueFamily != UINT32_MAX);
+    }
+    {
+        InitLoopParams params = {
+            .device = device,
+            .graphicsQueueFamily = graphicsQueueFamily,
+        };
+        InitLoop ret = rc_init_loop(params, &cleanup);
+        for (int i = 0; i < FRAME_OVERLAP; ++i) {
+            assert(ret.frames[i].commandPool != VK_NULL_HANDLE);
+        }
+    }
+    StaticCache_clean_up(&cleanup);
+}
+
+void test_five_render(void) {
+    StaticCache cleanup = StaticCache_init(1000);
+    VkInstance instance = VK_NULL_HANDLE;
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    WindowHandle windowHandle = { 0 };
+    VkDevice device = VK_NULL_HANDLE;
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    VkExtent2D size = { 0 };
+    VkSurfaceFormatKHR surfaceFormat = { 0 };
+    uint32_t graphicsQueueFamily = 0;
+    VkQueue graphicsQueue = VK_NULL_HANDLE;
+    VkSwapchainKHR swapchain;
+    SwapchainImageData swapchainImages[RC_SWAPCHAIN_LENGTH];
+    FrameData frames[FRAME_OVERLAP];
+    sc_t swapchainCleanupHandle = SC_ID_NONE;
+    {
+        PFN_vkGetInstanceProcAddr proc_addr = rc_proc_addr();
+        InitInstance init = rc_init_instance(proc_addr, false, &cleanup);
+        instance = init.instance;
+        assert(instance != VK_NULL_HANDLE);
+    }
+    {
+        const char* title = "Test window! \xF0\x9F\x87\xBA\xF0\x9F\x87\xB8";
+        InitSurfaceParams params = {
+            .instance = instance,
+            .title = title,
+            .titleLength = strlen(title),
+            .size = DEFAULT_SURFACE_SIZE,
+            .headless = false,
+        };
+        InitSurface ret = rc_init_surface(params, &cleanup);
+        surface = ret.surface;
+        windowHandle = ret.windowHandle;
+        size = ret.size;
+        assert(surface != NULL);
+        assert(size.width != 0);
+        assert(size.height != 0);
+        assert(size.width != DEFAULT_SURFACE_SIZE.width && size.height != DEFAULT_SURFACE_SIZE.height);
+    }
+    {
+        // so we need to refactor the logic so that surface format is chosen when physical device is chosen
+        InitDeviceParams params = {
+            .instance = instance,
+            .surface = surface,
+        };
+        InitDevice ret = rc_init_device(params, &cleanup);
+        device = ret.device;
+        surfaceFormat = ret.surfaceFormat;
+        graphicsQueueFamily = ret.graphicsQueueFamily;
+        physicalDevice = ret.physicalDevice;
+        graphicsQueue = ret.graphicsQueue;
+        assert(ret.device != NULL);
+    }
+    {
+        InitSwapchainParams params = {
+            .extent = size,
+
+            .device = device,
+            .physicalDevice = physicalDevice,
+            .surface = surface,
+            .surfaceFormat = surfaceFormat,
+            .graphicsQueueFamily = graphicsQueueFamily,
+
+            .oldSwapchain = VK_NULL_HANDLE,
+            .oldImages = { 0 },
+            .swapchainCleanupHandle = swapchainCleanupHandle,
+        };
+        InitSwapchain ret = rc_init_swapchain(params, &cleanup);
+        swapchain = ret.swapchain;
+        for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+            swapchainImages[i] = ret.images[i];
+        }
+        swapchainCleanupHandle  = ret.swapchainCleanupHandle;
+        assert(swapchain != NULL);
+    }
+    {
+        InitLoopParams params = {
+            .device = device,
+            .graphicsQueueFamily = graphicsQueueFamily,
+        };
+        InitLoop ret = rc_init_loop(params, &cleanup);
+        for (int i = 0; i < FRAME_OVERLAP; ++i) {
+            assert(ret.frames[i].commandPool != VK_NULL_HANDLE);
+            frames[i] = ret.frames[i];
+        }
+    }
+    DrawParams params = {
+        .device = device,
+        .swapchain = swapchain,
+        .graphicsQueue = graphicsQueue,
+        .swapchainImages = { 0 },
+    };
+    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+        params.swapchainImages[i] = swapchainImages[i];
+    }
+    int resizeCounter = 0;
+    for (int frameNumber = 0; frameNumber < 999999999; ++frameNumber) {
+        WindowUpdate update = rc_window_update(&windowHandle);
+        assert(!update.windowClosed);
+        // assert(update.shouldDraw); // break this by minimizing :)
+
+        if (update.requireResize) {
+            printf("new size: %d x %d\n", size.width, size.height);
+            size = update.resize;
+            resizeCounter = 10000000;
+        }
+        if (resizeCounter == 1) {
+            InitSwapchainParams params = {
+                .extent = size,
+
+                .device = device,
+                .physicalDevice = physicalDevice,
+                .surface = surface,
+                .surfaceFormat = surfaceFormat,
+                .graphicsQueueFamily = graphicsQueueFamily,
+
+                .oldSwapchain = swapchain,
+                .oldImages = { 0 },
+                .swapchainCleanupHandle = swapchainCleanupHandle,
+            };
+            for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+                params.oldImages[i] = swapchainImages[i];
+            }
+            InitSwapchain ret = rc_init_swapchain(params, &cleanup);
+            swapchain = ret.swapchain;
+            for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+                swapchainImages[i] = ret.images[i];
+            }
+            swapchainCleanupHandle = ret.swapchainCleanupHandle;
+        }
+
+        --resizeCounter;
+        if (update.shouldDraw && resizeCounter <= 0) {
+            printf("draw\n");
+            params.frame = frames[frameNumber % 2];
+            params.color = fabs(sin(frameNumber / 120.f));
+            rc_draw(params);
+        }
+    }
+    StaticCache_clean_up(&cleanup);
+}
+
 int main() {
     init_exceptions(false);
     UNITY_BEGIN();
@@ -196,6 +390,8 @@ int main() {
     RUN_TEST(test_init_surface);
     RUN_TEST(test_init_device);
     RUN_TEST(test_init_swapchain);
+    RUN_TEST(test_init_loop);
+    RUN_TEST(test_five_render);
     return UNITY_END();
 }
 

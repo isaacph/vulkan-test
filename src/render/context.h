@@ -2,6 +2,7 @@
 #define RENDER_CONTEXT_H_INCLUDED
 #include "functions.h"
 #define RC_SWAPCHAIN_LENGTH 3
+#define FRAME_OVERLAP 2
 #include "util/memory.h"
 #include <stdbool.h>
 #include "win32.h"
@@ -29,7 +30,7 @@ typedef struct RenderContext {
     VkExtent2D swapchainExtent;
     VkQueue graphicsQueue;
     uint32_t graphicsQueueFamily;
-    FrameData frames[2];
+    FrameData frames[FRAME_OVERLAP];
     SwapchainImageData images[RC_SWAPCHAIN_LENGTH];
     uint64_t frameNumber;
 } RenderContext;
@@ -66,24 +67,12 @@ typedef struct InitDeviceParams {
 typedef struct InitDevice {
     VkPhysicalDevice physicalDevice;
     VkDevice device;
-    VkQueue queue;
+    VkQueue graphicsQueue;
     uint32_t graphicsQueueFamily;
     VkSurfaceFormatKHR surfaceFormat;
     VkSurfaceCapabilitiesKHR surfaceCapabilities;
 } InitDevice;
 InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup);
-
-// configure_swapchain is to be called just once for a window to set up the swapchain
-typedef struct ConfigureSwapchainParams {
-    VkDevice device;
-    VkSurfaceKHR surface;
-    VkSurfaceFormatKHR surfaceFormat;
-    uint32_t graphicsQueueFamily;
-} ConfigureSwapchainParams;
-typedef struct ConfigureSwapchain {
-    FrameData frames[2];
-} ConfigureSwapchain;
-ConfigureSwapchain rc_configure_swapchain(ConfigureSwapchainParams params, StaticCache* cleanup);
 
 // init swapchain is to be called every time the window size changes to rebuild a new swapchain for it
 // invalidates oldSwapchain to reuse its resources if possible via the Vulkan implementation
@@ -111,12 +100,38 @@ typedef struct InitSwapchain {
 } InitSwapchain;
 InitSwapchain rc_init_swapchain(InitSwapchainParams params, StaticCache* cleanup);
 
+typedef struct InitLoopParams {
+    VkDevice device;
+    uint32_t graphicsQueueFamily;
+} InitLoopParams;
+typedef struct InitLoop {
+    FrameData frames[FRAME_OVERLAP];
+} InitLoop;
+InitLoop rc_init_loop(InitLoopParams params, StaticCache* cleanup);
+
+typedef struct WindowUpdate {
+    bool windowClosed;
+    bool shouldDraw;
+    bool requireResize;
+    VkExtent2D resize; // 0 unless resized
+} WindowUpdate;
+WindowUpdate rc_window_update(WindowHandle* windowHandle);
+
+typedef struct DrawParams {
+    VkDevice device;
+    VkSwapchainKHR swapchain;
+    FrameData frame;
+    float color;
+    VkQueue graphicsQueue;
+    SwapchainImageData swapchainImages[RC_SWAPCHAIN_LENGTH];
+} DrawParams;
+void rc_draw(DrawParams params);
+
 void rc_destroy(RenderContext* renderContext);
-void rc_draw(RenderContext* context);
 void rc_size_change(RenderContext* context, uint32_t width, uint32_t height);
 // VkResult rc_load_shader_module(RenderContext* rc, const unsigned char* source, uint32_t length, VkShaderModule* outShaderModule);
 // void rc_init_pipelines(RenderContext* context);
-void rc_init_loop(RenderContext* context);
+// void rc_init_loop(RenderContext* context);
 #if defined(_WIN32)
 struct RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd);
 #endif

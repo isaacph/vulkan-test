@@ -98,6 +98,13 @@ InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
         exception_msg("Invalid window handle");
     }
 
+    WindowUserData* userData = checkMalloc(malloc(sizeof(WindowUserData)));
+    *userData = (WindowUserData) {
+        .quit = false,
+        .shouldDraw = true,
+    };
+    SetWindowLongPtr(hwnd, GWLP_USERDATA, (unsigned long long) userData);
+
     RECT windowSize;
     GetClientRect(hwnd, &windowSize);
     width = windowSize.right - windowSize.left;
@@ -130,6 +137,7 @@ InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
         .windowHandle = (WindowHandle) {
             .hInstance = NULL,
             .hwnd = NULL,
+            .userData = userData,
         },
         .surface = surface,
         .size = (VkExtent2D) {
@@ -152,19 +160,20 @@ static void onDestroyWin32(void* castToSurface, sc_t id) {
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     // printf("Event: %u\n", uMsg);
     RECT rect;
+    WindowUserData* userData = (WindowUserData*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
     switch (uMsg) {
     case WM_SYSCOMMAND:
         // printf("Sys: %Iu\n", wParam);
         if (wParam == SC_MINIMIZE) {
-            // disableDraw = true;
+            userData->shouldDraw = false;
         } else if (wParam == SC_RESTORE) {
-            // disableDraw = false;
+            userData->shouldDraw = true;
         }
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
     case WM_DESTROY:
         PostQuitMessage(0);
-        // running = false;
-        // disableDraw = true;
+        userData->quit = true;
+        userData->shouldDraw = false;
         return 0;
     case WM_LBUTTONDOWN:
         printf("Received left mouse button\n");
@@ -173,18 +182,48 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         ValidateRect(hwnd, NULL);
         return 0;
     case WM_SIZE:
-        // if (wParam != SIZE_MINIMIZED && (resizeMode || wParam == SIZE_MAXIMIZED)) {
-        //     resetDrawBounds = true;
-        // }
+        if (wParam != SIZE_MINIMIZED && (userData->resizeQueued || wParam == SIZE_MAXIMIZED)) {
+            userData->propagateResize = true;
+            userData->newHeight = (int) (lParam >> 16) & 0xFFFF;
+            userData->newWidth = (int) lParam & 0xFFFF;
+        }
         return 0;
     case WM_ENTERSIZEMOVE:
-        // resizeMode = true;
+        userData->shouldDraw = false;
+        userData->resizeQueued = true;
         return 0;
     case WM_EXITSIZEMOVE:
-        // resizeMode = true;
+        userData->shouldDraw = true;
+        userData->resizeQueued = true;
         return 0;
     }
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+// returns true if should quit
+WindowUpdate rc_window_update(WindowHandle* windowHandle) {
+    MSG msg = {0};
+    while (PeekMessage(&msg, windowHandle->hwnd, 0, 0, PM_REMOVE) != 0) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+    bool resize = false;
+    VkExtent2D resizeExtent = { 0 };
+    if (windowHandle->userData->propagateResize) {
+        windowHandle->userData->resizeQueued = false;
+        windowHandle->userData->propagateResize = false;
+        resizeExtent = (VkExtent2D) {
+            .width = windowHandle->userData->newWidth,
+            .height = windowHandle->userData->newHeight,
+        };
+        resize = true;
+    }
+    return (WindowUpdate) {
+        .windowClosed = windowHandle->userData->quit,
+        .shouldDraw = windowHandle->userData->shouldDraw,
+        .requireResize = resize,
+        .resize = resizeExtent,
+    };
 }
 
 // RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {

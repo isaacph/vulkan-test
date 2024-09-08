@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include "util/backtrace.h"
 #include <string.h>
+#include <assert.h>
 
 const char* const ENABLE_DEVICE_EXTENSIONS[] = {
     "VK_KHR_swapchain",
@@ -26,8 +27,7 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
     VkInstance instance = params.instance;
     VkSurfaceKHR surface = params.surface;
     VkPhysicalDevice chosenPhysicalDevice = NULL;
-    VkDevice device = NULL;
-    VkQueue queue = NULL;
+    VkQueue graphicsQueue = NULL;
     VkSurfaceFormatKHR surfaceFormat = {0};
     VkSurfaceCapabilitiesKHR surfaceCapabilities = {0};
 
@@ -266,6 +266,7 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
     // }
 
     // finally create the device
+    VkDevice device = NULL;
     {
         float queuePriority = 1.0f;
         VkDeviceQueueCreateInfo queueCreateInfo = {
@@ -292,13 +293,14 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
             chosenPhysicalDevice, &createInfo, NULL, &device));
         printf("Device initialized\n");
     }
+    assert(device != NULL);
 
     // init all of the vk* functions that are per-device
     init_device_functions(device);
     printf("Device functions initialized\n");
 
     // get queue
-    vkGetDeviceQueue(device, graphicsQueueFamily, 0, &queue);
+    vkGetDeviceQueue(device, graphicsQueueFamily, 0, &graphicsQueue);
 
     free(layers);
 
@@ -306,7 +308,7 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
     return (InitDevice) {
         .physicalDevice = chosenPhysicalDevice,
         .device = device,
-        .queue = queue,
+        .graphicsQueue = graphicsQueue,
         .graphicsQueueFamily = graphicsQueueFamily,
         .surfaceFormat = surfaceFormat,
         .surfaceCapabilities = surfaceCapabilities,
