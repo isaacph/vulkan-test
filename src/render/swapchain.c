@@ -18,6 +18,7 @@ void cleanup_swapchain(void* ptr, sc_t id) {
         vkDestroyImageView(params->device, params->imageViews[i], NULL);
     }
     free(params);
+    printf("Cleaned up old window\n");
 }
 
 // I think this is basically glViewport, but in this case we also receive a recommendation from the graphics card??????

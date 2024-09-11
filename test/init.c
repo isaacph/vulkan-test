@@ -178,7 +178,6 @@ void test_init_swapchain(void) {
             .graphicsQueueFamily = graphicsQueueFamily,
 
             .oldSwapchain = VK_NULL_HANDLE,
-            .oldImages = { 0 },
             .swapchainCleanupHandle = SC_ID_NONE,
         };
         InitSwapchain ret = rc_init_swapchain(params, &cleanup);
@@ -303,7 +302,6 @@ void test_five_render(void) {
             .graphicsQueueFamily = graphicsQueueFamily,
 
             .oldSwapchain = VK_NULL_HANDLE,
-            .oldImages = { 0 },
             .swapchainCleanupHandle = swapchainCleanupHandle,
         };
         InitSwapchain ret = rc_init_swapchain(params, &cleanup);
@@ -334,7 +332,6 @@ void test_five_render(void) {
     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
         params.swapchainImages[i] = swapchainImages[i];
     }
-    int resizeCounter = 0;
     for (int frameNumber = 0; frameNumber < 999999999; ++frameNumber) {
         WindowUpdate update = rc_window_update(&windowHandle);
         assert(!update.windowClosed);
@@ -343,9 +340,6 @@ void test_five_render(void) {
         if (update.requireResize) {
             printf("new size: %d x %d\n", size.width, size.height);
             size = update.resize;
-            resizeCounter = 10000000;
-        }
-        if (resizeCounter == 1) {
             InitSwapchainParams params = {
                 .extent = size,
 
@@ -356,12 +350,8 @@ void test_five_render(void) {
                 .graphicsQueueFamily = graphicsQueueFamily,
 
                 .oldSwapchain = swapchain,
-                .oldImages = { 0 },
                 .swapchainCleanupHandle = swapchainCleanupHandle,
             };
-            for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
-                params.oldImages[i] = swapchainImages[i];
-            }
             InitSwapchain ret = rc_init_swapchain(params, &cleanup);
             swapchain = ret.swapchain;
             for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
@@ -370,8 +360,7 @@ void test_five_render(void) {
             swapchainCleanupHandle = ret.swapchainCleanupHandle;
         }
 
-        --resizeCounter;
-        if (update.shouldDraw && resizeCounter <= 0) {
+        if (update.shouldDraw) {
             printf("draw\n");
             params.frame = frames[frameNumber % 2];
             params.color = fabs(sin(frameNumber / 120.f));

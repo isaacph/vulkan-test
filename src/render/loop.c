@@ -127,23 +127,18 @@ static VkSubmitInfo2 submit_info(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubm
 }
 
 void rc_draw(DrawParams params) {
-    printf ("got here1\n");
     VkDevice device = params.device;
     VkSwapchainKHR swapchain = params.swapchain;
     FrameData frame = params.frame;
     VkQueue graphicsQueue = params.graphicsQueue;
 
-    printf ("got here2\n");
     check(vkWaitForFences(device, 1, &frame.renderFence, true, 1000000000));
     check(vkResetFences(device, 1, &frame.renderFence));
 
-    printf ("got here3 %p %p %p\n", device, swapchain, frame.swapchainSemaphore);
     uint32_t swapchainImageIndex;
     check(vkAcquireNextImageKHR(device, swapchain, 1000000000, frame.swapchainSemaphore, VK_NULL_HANDLE, &swapchainImageIndex));
-    printf ("got here5\n");
     SwapchainImageData* image = &params.swapchainImages[swapchainImageIndex];
 
-    printf ("got here4\n");
     VkCommandBuffer cmd = frame.mainCommandBuffer;
     check(vkResetCommandBuffer(cmd, 0));
 

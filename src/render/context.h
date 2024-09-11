@@ -90,7 +90,6 @@ typedef struct InitSwapchainParams {
     // pass in the swapchain from the previous call for reuse (or VK_NULL_HANDLE if there is none)
     // these handles will all be deleted and cleared
     VkSwapchainKHR oldSwapchain;
-    SwapchainImageData oldImages[RC_SWAPCHAIN_LENGTH];
     sc_t swapchainCleanupHandle;
 } InitSwapchainParams;
 typedef struct InitSwapchain {
