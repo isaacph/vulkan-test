@@ -1,4 +1,7 @@
+#include "render2/win32.h"
+#include <assert.h>
 #include "util.h"
+#include "util/memory.h"
 #ifndef UNICODE
 #define UNICODE
 #endif
@@ -7,6 +10,7 @@
 #endif
 #include <windows.h>
 #include <stdio.h>
+#include "render2/context.h"
 #include "render/context.h"
 #include "backtrace.h"
 
@@ -19,6 +23,9 @@
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lparam);
 RenderContext renderContext;
+WindowHandle windowHandle;
+sc_t swapchainCleanupHandle;
+StaticCache cleanup;
 bool resizeMode = false;
 bool resetDrawBounds = false;
 bool disableDraw = false;
@@ -33,8 +40,9 @@ void draw(HWND hwnd) {
             rc_size_change(&renderContext, width, height);
         }
         resetDrawBounds = false;
+    } else {
+        rc_draw(&renderContext);
     }
-    rc_draw(&renderContext);
 }
 
 // int WinMain(
@@ -48,10 +56,12 @@ int winmain() {
         printf("Error initializing COM library: %ld", hr);
         return 1;
     }
+    swapchainCleanupHandle = SC_ID_NONE;
 
     init_exceptions(false);
 
     HINSTANCE hInstance = GetModuleHandle(NULL);
+    cleanup = StaticCache_init(1000);
 
     // Register the window class.
     const wchar_t CLASS_NAME[]  = L"Sample Window Class";
@@ -89,7 +99,96 @@ int winmain() {
         return 0;
     }
 
-    renderContext = rc_init_win32(hInstance, hwnd);
+    // renderContext = rc_init_win32(hInstance, hwnd);
+    renderContext = (RenderContext) { 0 };
+    {
+        {
+            PFN_vkGetInstanceProcAddr proc_addr = rc2_proc_addr();
+            InitInstance init = rc2_init_instance(proc_addr, false, &cleanup);
+            renderContext.instance = init.instance;
+            assert(renderContext.instance != VK_NULL_HANDLE);
+        }
+        {
+            const char* title = "Test window! \xF0\x9F\x87\xBA\xF0\x9F\x87\xB8";
+            windowHandle = (WindowHandle) {
+                .hInstance = hInstance,
+                .hwnd = hwnd,
+                .userData = NULL,
+            };
+            InitSurfaceParams params = {
+                .instance = renderContext.instance,
+                .title = title,
+                .titleLength = strlen(title),
+                .size = DEFAULT_SURFACE_SIZE,
+                .headless = false,
+                .handle = windowHandle,
+            };
+            InitSurface ret = rc2_init_surface(params, &cleanup);
+            renderContext.surface = ret.surface;
+            windowHandle = ret.windowHandle;
+            renderContext.drawExtent = ret.size;
+            assert(renderContext.surface != NULL);
+            assert(renderContext.drawExtent.width != 0);
+            assert(renderContext.drawExtent.height != 0);
+            assert(renderContext.drawExtent.width != DEFAULT_SURFACE_SIZE.width && renderContext.drawExtent.height != DEFAULT_SURFACE_SIZE.height);
+        }
+        {
+            // so we need to refactor the logic so that surface format is chosen when physical device is chosen
+            InitDeviceParams params = {
+                .instance = renderContext.instance,
+                .surface = renderContext.surface,
+            };
+            InitDevice ret = rc2_init_device(params, &cleanup);
+            renderContext.device = ret.device;
+            renderContext.surfaceFormat = ret.surfaceFormat;
+            renderContext.graphicsQueueFamily = ret.graphicsQueueFamily;
+            renderContext.physicalDevice = ret.physicalDevice;
+            renderContext.graphicsQueue = ret.graphicsQueue;
+            assert(ret.device != NULL);
+        }
+        {
+            InitSwapchainParams params = {
+                .extent = renderContext.drawExtent,
+
+                .device = renderContext.device,
+                .physicalDevice = renderContext.physicalDevice,
+                .surface = renderContext.surface,
+                .surfaceFormat = renderContext.surfaceFormat,
+                .graphicsQueueFamily = renderContext.graphicsQueueFamily,
+
+                .oldSwapchain = VK_NULL_HANDLE,
+                .swapchainCleanupHandle = swapchainCleanupHandle,
+            };
+            InitSwapchain ret = rc2_init_swapchain(params, &cleanup);
+            renderContext.swapchain = ret.swapchain;
+            for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+                renderContext.images[i] = ret.images[i];
+            }
+            swapchainCleanupHandle  = ret.swapchainCleanupHandle;
+            assert(renderContext.swapchain != NULL);
+        }
+        {
+            InitLoopParams params = {
+                .device = renderContext.device,
+                .graphicsQueueFamily = renderContext.graphicsQueueFamily,
+            };
+            InitLoop ret = rc2_init_loop(params, &cleanup);
+            for (int i = 0; i < FRAME_OVERLAP; ++i) {
+                assert(ret.frames[i].commandPool != VK_NULL_HANDLE);
+                renderContext.frames[i] = ret.frames[i];
+            }
+        }
+        DrawParams params = {
+            .device = renderContext.device,
+            .swapchain = renderContext.swapchain,
+            .graphicsQueue = renderContext.graphicsQueue,
+            .swapchainImages = { 0 },
+        };
+        for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+            params.swapchainImages[i] = renderContext.images[i];
+        }
+
+    }
 
     ShowWindow(hwnd, SW_SHOW);
 
@@ -107,7 +206,8 @@ int winmain() {
         }
     }
 
-    rc_destroy(&renderContext);
+    StaticCache_clean_up(&cleanup);
+    // rc_destroy(&renderContext);
     CoUninitialize();
     return 0;
 }

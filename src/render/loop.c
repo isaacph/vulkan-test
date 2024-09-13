@@ -1,6 +1,6 @@
 #include <stdbool.h>
 #include "context.h"
-#include "functions.h"
+#include "../render2/functions.h"
 #include <math.h>
 #include <vulkan/vulkan_core.h>
 
@@ -79,7 +79,7 @@ static VkSubmitInfo2 submit_info(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubm
 void rc_draw(RenderContext* context) {
     VkDevice device = context->device;
     VkSwapchainKHR swapchain = context->swapchain;
-    FrameData* frame = &context->frames[context->frameNumber % RC_SWAPCHAIN_LENGTH];
+    FrameData* frame = &context->frames[context->frameNumber % 2];
     uint64_t frameNumber = context->frameNumber;
     VkQueue graphicsQueue = context->graphicsQueue;
 

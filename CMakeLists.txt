@@ -97,13 +97,24 @@ add_library(Main STATIC
     #    src/shader.c
     src/util/memory.c
     src/render/device.c
-    src/render/functions.c
+    # src/render/functions.c
     src/render/image.c
     src/render/instance.c
     src/render/loop.c
     src/render/swapchain.c
-    src/render/util.c
+    # src/render/util.c
     src/render/win32.c
+    src/render2/device.c
+    src/render2/instance.c
+    src/render2/functions.c
+    src/render2/image.c
+    src/render2/loop.c
+    src/render2/swapchain.c
+    src/render2/util.c
+    src/render2/wayland.c
+    src/render2/win32.c
+    src/util/utf8.c
+    src/util/utf16.c
     )
 add_dependencies(Main Shaders)
 target_include_directories(Main PUBLIC src)

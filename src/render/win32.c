@@ -61,37 +61,37 @@ RenderContext rc_init_win32(HINSTANCE hInstance, HWND hwnd) {
         context.images[i] = emptyImage;
     }
 
-    // call instance init
-    {
-        InitInstance initInstance = rc_init_instance(fp_vkGetInstanceProcAddr);
-        context.instance = initInstance.instance;
-    }
+    // // call instance init
+    // {
+    //     InitInstance initInstance = rc_init_instance(fp_vkGetInstanceProcAddr);
+    //     context.instance = initInstance.instance;
+    // }
 
-    // make win32 surface
-    {
-        VkWin32SurfaceCreateInfoKHR createInfo = {
-            .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-            .pNext = NULL,
-            .flags = 0,
-            .hinstance = hInstance,
-            .hwnd = hwnd,
-        };
-        check(vkCreateWin32SurfaceKHR(context.instance, &createInfo, NULL, &context.surface));
-    }
-    printf("Created win32 surface\n");
+    // // make win32 surface
+    // {
+    //     VkWin32SurfaceCreateInfoKHR createInfo = {
+    //         .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+    //         .pNext = NULL,
+    //         .flags = 0,
+    //         .hinstance = hInstance,
+    //         .hwnd = hwnd,
+    //     };
+    //     check(vkCreateWin32SurfaceKHR(context.instance, &createInfo, NULL, &context.surface));
+    // }
+    // printf("Created win32 surface\n");
 
-    // make device
-    {
-        InitDevice initDevice = rc_init_device((InitDeviceParams) {
-            .instance = context.instance,
-            .surface = context.surface,
-            .surfaceFormat = context.surfaceFormat,
-        });
-        context.physicalDevice = initDevice.physicalDevice;
-        context.device = initDevice.device;
-        context.graphicsQueue = initDevice.queue;
-        context.graphicsQueueFamily = initDevice.graphicsQueueFamily;
-    }
+    // // make device
+    // {
+    //     InitDevice initDevice = rc_init_device((InitDeviceParams) {
+    //         .instance = context.instance,
+    //         .surface = context.surface,
+    //         .surfaceFormat = context.surfaceFormat,
+    //     });
+    //     context.physicalDevice = initDevice.physicalDevice;
+    //     context.device = initDevice.device;
+    //     context.graphicsQueue = initDevice.queue;
+    //     context.graphicsQueueFamily = initDevice.graphicsQueueFamily;
+    // }
 
     // set up the swapchain
     rc_configure_swapchain(&context);

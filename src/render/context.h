@@ -1,8 +1,9 @@
-#ifndef RENDER_CONTEXT_H_INCLUDED
-#define RENDER_CONTEXT_H_INCLUDED
-#include "functions.h"
+#ifndef RENDER_CONTEXT_H_INCLUDED_2
+#define RENDER_CONTEXT_H_INCLUDED_2 
+#include "../render2/functions.h"
 #define RC_SWAPCHAIN_LENGTH 3
 
+#ifndef RENDER_CONTEXT_H_INCLUDED
 typedef struct FrameData {
     VkCommandPool commandPool;
     VkCommandBuffer mainCommandBuffer;
@@ -14,6 +15,7 @@ typedef struct SwapchainImageData {
     VkImage swapchainImage;
     VkImageView swapchainImageView;
 } SwapchainImageData;
+#endif
 
 typedef struct AllocatedImage {
     VkImage image;
@@ -41,23 +43,23 @@ typedef struct RenderContext {
     VkExtent2D drawExtent;
 } RenderContext;
 
-typedef struct InitInstance {
-    VkInstance instance;
-} InitInstance;
-InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr);
-
-typedef struct InitDeviceParams {
-    VkInstance instance;
-    VkSurfaceKHR surface;
-    VkSurfaceFormatKHR surfaceFormat;
-} InitDeviceParams;
-typedef struct InitDevice {
-    VkPhysicalDevice physicalDevice;
-    VkDevice device;
-    VkQueue queue;
-    uint32_t graphicsQueueFamily;
-} InitDevice;
-InitDevice rc_init_device(InitDeviceParams params);
+// typedef struct InitInstance {
+//     VkInstance instance;
+// } InitInstance;
+// InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr);
+// 
+// typedef struct InitDeviceParams {
+//     VkInstance instance;
+//     VkSurfaceKHR surface;
+//     VkSurfaceFormatKHR surfaceFormat;
+// } InitDeviceParams;
+// typedef struct InitDevice {
+//     VkPhysicalDevice physicalDevice;
+//     VkDevice device;
+//     VkQueue queue;
+//     uint32_t graphicsQueueFamily;
+// } InitDevice;
+// InitDevice rc_init_device(InitDeviceParams params);
 
 void rc_swapchain_configure(RenderContext* renderContext);
 void rc_init_swapchain(RenderContext* renderContext, uint32_t width, uint32_t height);

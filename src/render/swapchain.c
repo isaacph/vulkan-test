@@ -1,5 +1,5 @@
 #include "context.h"
-#include "util.h"
+#include "../render2/util.h"
 #include <stdbool.h>
 
 // must be called prior to calling rc_init_swapchain
