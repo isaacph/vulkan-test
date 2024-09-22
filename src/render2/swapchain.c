@@ -119,6 +119,7 @@ InitSwapchain rc2_init_swapchain(InitSwapchainParams params, StaticCache* cleanu
     // create new swapchain
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     {
+        printf("New swapchain extent: %d x %d\n", extent.width, extent.height);
         VkSwapchainCreateInfoKHR createInfo = {
             .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
             .pNext = NULL,

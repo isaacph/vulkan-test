@@ -13,6 +13,7 @@
 #include "render2/context.h"
 #include "render/context.h"
 #include "backtrace.h"
+#include <math.h>
 
 // making a bunch of modes
 // all modes will have the actual game in a separate process
@@ -30,18 +31,54 @@ bool resizeMode = false;
 bool resetDrawBounds = false;
 bool disableDraw = false;
 bool running = true;
+int frameNumber = 0;
 
 void draw(HWND hwnd) {
-    if (resetDrawBounds) {
+    if (resetDrawBounds || windowHandle.userData->resizeQueued) {
+        printf("resize?\n");
         RECT rect;
-        if (GetClientRect(hwnd, &rect)) {
+        printf("%p vs %p\n", windowHandle.hwnd, hwnd);
+        if (GetClientRect(windowHandle.hwnd, &rect)) {
             uint32_t width = rect.right - rect.left;
             uint32_t height = rect.bottom - rect.top;
-            rc_size_change(&renderContext, width, height);
+            // rc_size_change(&renderContext, width, height);
+            InitSwapchainParams params = {
+                .extent = (VkExtent2D) {
+                    .width = width,
+                    .height = height,
+                },
+                .physicalDevice = renderContext.physicalDevice,
+                .graphicsQueueFamily = renderContext.graphicsQueueFamily,
+                .device = renderContext.device,
+                .surface = renderContext.surface,
+                .surfaceFormat = renderContext.surfaceFormat,
+                .oldSwapchain = renderContext.swapchain,
+                .swapchainCleanupHandle = swapchainCleanupHandle,
+            };
+            InitSwapchain ret = rc2_init_swapchain(params, &cleanup);
+            renderContext.swapchain = ret.swapchain;
+            swapchainCleanupHandle = ret.swapchainCleanupHandle;
+            for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+                renderContext.images[i] = ret.images[i];
+            }
         }
         resetDrawBounds = false;
-    } else {
-        rc_draw(&renderContext);
+        windowHandle.userData->resizeQueued = false;
+    } else if (windowHandle.userData->shouldDraw) {
+        // rc_draw(&renderContext);
+        ++frameNumber;
+        float flash = fabs(sin(frameNumber / 120.));
+        DrawParams params = {
+			.device = renderContext.device,
+			.swapchain = renderContext.swapchain,
+			.frame = renderContext.frames[frameNumber % FRAME_OVERLAP],
+			.color = flash,
+			.graphicsQueue = renderContext.graphicsQueue,
+        };
+        for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+            params.swapchainImages[i] = renderContext.images[i];
+        }
+        rc2_draw(params);
     }
 }
 
@@ -51,53 +88,58 @@ void draw(HWND hwnd) {
 //         LPSTR lpCmdLine,
 //         int nCmdShow) {
 int winmain() {
-    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-    if (FAILED(hr)) {
-        printf("Error initializing COM library: %ld", hr);
-        return 1;
-    }
     swapchainCleanupHandle = SC_ID_NONE;
-
     init_exceptions(false);
-
-    HINSTANCE hInstance = GetModuleHandle(NULL);
     cleanup = StaticCache_init(1000);
 
-    // Register the window class.
-    const wchar_t CLASS_NAME[]  = L"Sample Window Class";
-    
-    WNDCLASSW wc = {0};
-    wc.lpfnWndProc = WindowProc;
-    wc.hInstance = hInstance;
-    wc.lpszClassName = CLASS_NAME;
-    wc.hIcon = LoadIcon(0, IDI_APPLICATION);
-    wc.hCursor = LoadCursor(0, IDC_ARROW);
-    wc.hbrBackground = GetStockObject(WHITE_BRUSH);
-    RegisterClassW(&wc);
+    // HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    // if (FAILED(hr)) {
+    //     printf("Error initializing COM library: %ld", hr);
+    //     return 1;
+    // }
 
-    // Create the window.
-    HWND hwnd = CreateWindowEx(
-        0,                              // Optional window styles.
-        CLASS_NAME,                     // Window class
-        L"Learn to Program Windows",    // Window text
-        WS_OVERLAPPEDWINDOW,            // Window style
+    // HINSTANCE hInstance = GetModuleHandle(NULL);
+    // windowHandle.hInstance = hInstance;
 
-        // Size and position
-        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+    // // Register the window class.
+    // const wchar_t CLASS_NAME[]  = L"Sample Window Class";
+    // 
+    // WNDCLASSW wc = {0};
+    // wc.lpfnWndProc = WindowProc;
+    // wc.hInstance = hInstance;
+    // wc.lpszClassName = CLASS_NAME;
+    // wc.hIcon = LoadIcon(0, IDI_APPLICATION);
+    // wc.hCursor = LoadCursor(0, IDC_ARROW);
+    // wc.hbrBackground = GetStockObject(WHITE_BRUSH);
+    // RegisterClassW(&wc);
 
-        NULL,       // Parent window    
-        NULL,       // Menu
-        hInstance,  // Instance handle
-        NULL        // Additional application data
-        );
+    // // Create the window.
+    // HWND hwnd = CreateWindowEx(
+    //     0,                              // Optional window styles.
+    //     CLASS_NAME,                     // Window class
+    //     L"Learn to Program Windows",    // Window text
+    //     WS_OVERLAPPEDWINDOW,            // Window style
 
-    if (hwnd == NULL)
-    {
-        DWORD lastError = GetLastError();
-        printf("last error: %lu\n", lastError);
-        exception_msg("Invalid window handle");
-        return 0;
-    }
+    //     // Size and position
+    //     CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+
+    //     NULL,       // Parent window    
+    //     NULL,       // Menu
+    //     hInstance,  // Instance handle
+    //     NULL        // Additional application data
+    //     );
+    // windowHandle.hwnd = hwnd;
+    // printf("Assigned hwnd to %p\n", hwnd);
+
+    // if (hwnd == NULL)
+    // {
+    //     DWORD lastError = GetLastError();
+    //     printf("last error: %lu\n", lastError);
+    //     exception_msg("Invalid window handle");
+    //     return 0;
+    // }
+
+    // ShowWindow(hwnd, SW_SHOW);
 
     // renderContext = rc_init_win32(hInstance, hwnd);
     renderContext = (RenderContext) { 0 };
@@ -110,11 +152,6 @@ int winmain() {
         }
         {
             const char* title = "Test window! \xF0\x9F\x87\xBA\xF0\x9F\x87\xB8";
-            windowHandle = (WindowHandle) {
-                .hInstance = hInstance,
-                .hwnd = hwnd,
-                .userData = NULL,
-            };
             InitSurfaceParams params = {
                 .instance = renderContext.instance,
                 .title = title,
@@ -187,28 +224,69 @@ int winmain() {
         for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
             params.swapchainImages[i] = renderContext.images[i];
         }
-
     }
 
-    ShowWindow(hwnd, SW_SHOW);
+    // bool running = true;
+    // while (running) {
+    //     WindowUpdate update = rc2_window_update(&windowHandle);
+    //     running = !update.windowClosed;
+    //     // assert(update.shouldDraw); // break this by minimizing :)
+
+    //     if (update.requireResize) {
+    //         renderContext.drawExtent = update.resize;
+    //         printf("new size: %d x %d\n", renderContext.drawExtent.width, renderContext.drawExtent.height);
+    //         InitSwapchainParams params = {
+    //             .extent = renderContext.drawExtent,
+
+    //             .device = renderContext.device,
+    //             .physicalDevice = renderContext.physicalDevice,
+    //             .surface = renderContext.surface,
+    //             .surfaceFormat = renderContext.surfaceFormat,
+    //             .graphicsQueueFamily = renderContext.graphicsQueueFamily,
+
+    //             .oldSwapchain = renderContext.swapchain,
+    //             .swapchainCleanupHandle = swapchainCleanupHandle,
+    //         };
+    //         InitSwapchain ret = rc2_init_swapchain(params, &cleanup);
+    //         renderContext.swapchain = ret.swapchain;
+    //         for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+    //             renderContext.images[i] = ret.images[i];
+    //         }
+    //         swapchainCleanupHandle = ret.swapchainCleanupHandle;
+    //     }
+
+    //     if (update.shouldDraw) {
+    //         printf("draw\n");
+    //         DrawParams params = {
+    //             .device = renderContext.device,
+    //             .swapchain = renderContext.swapchain,
+    //             .graphicsQueue = renderContext.graphicsQueue,
+    //             .swapchainImages = { 0 },
+    //             .frame = renderContext.frames[frameNumber % 2],
+    //             .color = fabs(sin(frameNumber / 120.f)),
+    //         };
+    //         for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+    //             params.swapchainImages[i] = renderContext.images[i];
+    //         }
+    //         rc2_draw(params);
+    //     }
+    // }
 
     // Run the message loop.
 
     MSG msg = {0};
-    while (running) {
-        if (!disableDraw) {
-            draw(hwnd);
-        } else {
-        }
+    while (running && !windowHandle.userData->quit) {
+        draw(windowHandle.hwnd);
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) != 0) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
     }
 
-    StaticCache_clean_up(&cleanup);
     // rc_destroy(&renderContext);
     CoUninitialize();
+
+    StaticCache_clean_up(&cleanup);
     return 0;
 }
 

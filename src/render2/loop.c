@@ -131,12 +131,17 @@ void rc2_draw(DrawParams params) {
     VkSwapchainKHR swapchain = params.swapchain;
     FrameData frame = params.frame;
     VkQueue graphicsQueue = params.graphicsQueue;
+    VkResult result = VK_SUCCESS;
 
     check(vkWaitForFences(device, 1, &frame.renderFence, true, 1000000000));
     check(vkResetFences(device, 1, &frame.renderFence));
 
     uint32_t swapchainImageIndex;
-    check(vkAcquireNextImageKHR(device, swapchain, 1000000000, frame.swapchainSemaphore, VK_NULL_HANDLE, &swapchainImageIndex));
+    result = vkAcquireNextImageKHR(device, swapchain, 1000000000, frame.swapchainSemaphore, VK_NULL_HANDLE, &swapchainImageIndex);
+    if (result != VK_SUCCESS) {
+        printf("Non-success vkAcquireNextImageKHR result: %d, returning\n", result);
+        return;
+    }
     SwapchainImageData* image = &params.swapchainImages[swapchainImageIndex];
 
     VkCommandBuffer cmd = frame.mainCommandBuffer;
@@ -148,7 +153,7 @@ void rc2_draw(DrawParams params) {
         .pInheritanceInfo = NULL,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
-    check(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+    result = vkBeginCommandBuffer(cmd, &cmdBeginInfo);
 
     rc2_transition_image(cmd, image->swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
     // make a clear-color from frame number. This will flash with a 120 frame period.
@@ -183,5 +188,8 @@ void rc2_draw(DrawParams params) {
 
         .pImageIndices = &swapchainImageIndex,
     };
-    check(vkQueuePresentKHR(graphicsQueue, &presentInfo));
+    vkQueuePresentKHR(graphicsQueue, &presentInfo);
+    if (result != VK_SUCCESS) {
+        printf("Non-success VkQueuePresentKHR result: %d\n", result);
+    }
 }

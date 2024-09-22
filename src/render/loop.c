@@ -104,6 +104,7 @@ void rc_draw(RenderContext* context) {
     rc_transition_image(cmd, image->swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
     // make a clear-color from frame number. This will flash with a 120 frame period.
 	float flash = fabs(sin(frameNumber / 120.f));
+    printf("%f %f\n", frameNumber / 120.0f, flash);
     VkClearColorValue clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
 
     VkImageSubresourceRange clearRange = basic_image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
