@@ -112,8 +112,8 @@ InitLoop rc2_init_loop(InitLoopParams params, StaticCache* cleanup);
 typedef struct WindowUpdate {
     bool windowClosed;
     bool shouldDraw;
-    bool requireResize;
-    VkExtent2D resize; // 0 unless resized
+    bool resize;
+    VkExtent2D newSize; // 0 unless resized
 } WindowUpdate;
 WindowUpdate rc2_window_update(WindowHandle* windowHandle);
 

@@ -110,7 +110,6 @@ InitSurface rc2_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
     *userData = (WindowUserData) {
         .quit = false,
         .shouldDraw = true,
-        .propagateResize = false,
         .resizeQueued = false,
         .newWidth = width,
         .newHeight = height,
@@ -232,22 +231,12 @@ WindowUpdate rc2_window_update(WindowHandle* windowHandle) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
-    bool resize = false;
-    VkExtent2D resizeExtent = { 0 };
-    if (windowHandle->userData->propagateResize) {
-        windowHandle->userData->resizeQueued = false;
-        windowHandle->userData->propagateResize = false;
-        resizeExtent = (VkExtent2D) {
-            .width = windowHandle->userData->newWidth,
-            .height = windowHandle->userData->newHeight,
-        };
-        resize = true;
-    }
+    bool resize = windowHandle->userData->resizeQueued;
+    windowHandle->userData->resizeQueued = false;
     return (WindowUpdate) {
         .windowClosed = windowHandle->userData->quit,
         .shouldDraw = windowHandle->userData->shouldDraw,
-        .requireResize = resize,
-        .resize = resizeExtent,
+        .resize = resize,
     };
 }
 

@@ -13,7 +13,6 @@
 typedef struct WindowUserData {
     bool quit;
     bool shouldDraw;
-    bool propagateResize;
     bool resizeQueued;
     int newWidth;
     int newHeight;

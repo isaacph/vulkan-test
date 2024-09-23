@@ -226,65 +226,45 @@ int winmain() {
         }
     }
 
-    // bool running = true;
-    // while (running) {
-    //     WindowUpdate update = rc2_window_update(&windowHandle);
-    //     running = !update.windowClosed;
-    //     // assert(update.shouldDraw); // break this by minimizing :)
-
-    //     if (update.requireResize) {
-    //         renderContext.drawExtent = update.resize;
-    //         printf("new size: %d x %d\n", renderContext.drawExtent.width, renderContext.drawExtent.height);
-    //         InitSwapchainParams params = {
-    //             .extent = renderContext.drawExtent,
-
-    //             .device = renderContext.device,
-    //             .physicalDevice = renderContext.physicalDevice,
-    //             .surface = renderContext.surface,
-    //             .surfaceFormat = renderContext.surfaceFormat,
-    //             .graphicsQueueFamily = renderContext.graphicsQueueFamily,
-
-    //             .oldSwapchain = renderContext.swapchain,
-    //             .swapchainCleanupHandle = swapchainCleanupHandle,
-    //         };
-    //         InitSwapchain ret = rc2_init_swapchain(params, &cleanup);
-    //         renderContext.swapchain = ret.swapchain;
-    //         for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
-    //             renderContext.images[i] = ret.images[i];
-    //         }
-    //         swapchainCleanupHandle = ret.swapchainCleanupHandle;
-    //     }
-
-    //     if (update.shouldDraw) {
-    //         printf("draw\n");
-    //         DrawParams params = {
-    //             .device = renderContext.device,
-    //             .swapchain = renderContext.swapchain,
-    //             .graphicsQueue = renderContext.graphicsQueue,
-    //             .swapchainImages = { 0 },
-    //             .frame = renderContext.frames[frameNumber % 2],
-    //             .color = fabs(sin(frameNumber / 120.f)),
-    //         };
-    //         for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
-    //             params.swapchainImages[i] = renderContext.images[i];
-    //         }
-    //         rc2_draw(params);
-    //     }
-    // }
-
-    // Run the message loop.
-
-    MSG msg = {0};
-    while (running && !windowHandle.userData->quit) {
-        draw(windowHandle.hwnd);
-        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) != 0) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
+    bool running = true;
+    while (running) {
+        WindowUpdate update = rc2_window_update(&windowHandle);
+        running = !update.windowClosed;
+        if (update.resize) {
+            // rc_size_change(&renderContext, width, height);
+            InitSwapchainParams params = {
+                .extent = update.newSize,
+                .physicalDevice = renderContext.physicalDevice,
+                .graphicsQueueFamily = renderContext.graphicsQueueFamily,
+                .device = renderContext.device,
+                .surface = renderContext.surface,
+                .surfaceFormat = renderContext.surfaceFormat,
+                .oldSwapchain = renderContext.swapchain,
+                .swapchainCleanupHandle = swapchainCleanupHandle,
+            };
+            InitSwapchain ret = rc2_init_swapchain(params, &cleanup);
+            renderContext.swapchain = ret.swapchain;
+            swapchainCleanupHandle = ret.swapchainCleanupHandle;
+            for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+                renderContext.images[i] = ret.images[i];
+            }
+        } else if (windowHandle.userData->shouldDraw) {
+            // rc_draw(&renderContext);
+            ++frameNumber;
+            float flash = fabs(sin(frameNumber / 120.));
+            DrawParams params = {
+                .device = renderContext.device,
+                .swapchain = renderContext.swapchain,
+                .frame = renderContext.frames[frameNumber % FRAME_OVERLAP],
+                .color = flash,
+                .graphicsQueue = renderContext.graphicsQueue,
+            };
+            for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+                params.swapchainImages[i] = renderContext.images[i];
+            }
+            rc2_draw(params);
         }
     }
-
-    // rc_destroy(&renderContext);
-    CoUninitialize();
 
     StaticCache_clean_up(&cleanup);
     return 0;
