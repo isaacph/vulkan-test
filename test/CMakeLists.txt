@@ -19,3 +19,7 @@ target_link_libraries(util_uuid_c Main unity::framework)
 # 
 # add_executable(util_utf16_c util/utf16.c)
 # target_link_libraries(util_utf16_c Main unity::framework)
+
+add_executable(experiment_image_c experiment/image.c)
+target_link_libraries(experiment_image_c Main unity::framework)
+
