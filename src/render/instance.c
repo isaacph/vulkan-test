@@ -25,7 +25,7 @@ const char* const ENABLE_LAYERS[] = {
 const size_t ENABLE_LAYERS_COUNT = 0;
 
 
-void cleanup_instance(void* user_ptr, sc_t id) {
+static void cleanup_instance(void* user_ptr, sc_t id) {
     printf("Instance cleaned up\n");
     vkDestroyInstance((VkInstance) user_ptr, NULL);
 }
@@ -176,47 +176,47 @@ InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr
     };
 }
 
-void rc_destroy(RenderContext* context) {
-    printf("Cleaning up Vulkan\n");
-    printf("Waiting for fences first...\n");
-    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
-        check(vkWaitForFences(context->device, 1, &context->frames[i].renderFence, true, 1000000000));
-        check(vkResetFences(context->device, 1, &context->frames[i].renderFence));
-    }
-    printf("Destroying sync primitives");
-    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
-        vkDestroySemaphore(context->device, context->frames[i].swapchainSemaphore, NULL);
-        vkDestroySemaphore(context->device, context->frames[i].renderSemaphore, NULL);
-        vkDestroyFence(context->device, context->frames[i].renderFence, NULL);
-    }
-    // vkDestroyImageView(context->device, context->drawImage.imageView, NULL);
-    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
-        if (context->images[i].swapchainImageView != VK_NULL_HANDLE) {
-            vkDestroyImageView(
-                context->device,
-                context->images[i].swapchainImageView,
-                NULL);
-            // it doesn't seem like we use framebuffers for this version?
-            // vkDestroyFramebuffer(
-            //     context->device,
-            //     context->framebuffers[i],
-            //     NULL);
-        }
-    }
-    vkDestroySwapchainKHR(
-            context->device,
-            context->swapchain,
-            NULL);
-    vkDestroySurfaceKHR(
-            context->instance,
-            context->surface,
-            NULL);
-    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
-        if (context->images[i].swapchainImageView != VK_NULL_HANDLE) {
-            vkFreeCommandBuffers(context->device, context->frames[i].commandPool, 1, &context->frames[i].mainCommandBuffer);
-            vkDestroyCommandPool(context->device, context->frames[i].commandPool, NULL);
-        }
-    }
-    vkDestroyDevice(context->device, NULL);
-    vkDestroyInstance(context->instance, NULL);
-}
+// void rc_destroy(RenderContext* context) {
+//     printf("Cleaning up Vulkan\n");
+//     printf("Waiting for fences first...\n");
+//     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+//         check(vkWaitForFences(context->device, 1, &context->frames[i].renderFence, true, 1000000000));
+//         check(vkResetFences(context->device, 1, &context->frames[i].renderFence));
+//     }
+//     printf("Destroying sync primitives");
+//     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+//         vkDestroySemaphore(context->device, context->frames[i].swapchainSemaphore, NULL);
+//         vkDestroySemaphore(context->device, context->frames[i].renderSemaphore, NULL);
+//         vkDestroyFence(context->device, context->frames[i].renderFence, NULL);
+//     }
+//     // vkDestroyImageView(context->device, context->drawImage.imageView, NULL);
+//     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+//         if (context->images[i].swapchainImageView != VK_NULL_HANDLE) {
+//             vkDestroyImageView(
+//                 context->device,
+//                 context->images[i].swapchainImageView,
+//                 NULL);
+//             // it doesn't seem like we use framebuffers for this version?
+//             // vkDestroyFramebuffer(
+//             //     context->device,
+//             //     context->framebuffers[i],
+//             //     NULL);
+//         }
+//     }
+//     vkDestroySwapchainKHR(
+//             context->device,
+//             context->swapchain,
+//             NULL);
+//     vkDestroySurfaceKHR(
+//             context->instance,
+//             context->surface,
+//             NULL);
+//     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+//         if (context->images[i].swapchainImageView != VK_NULL_HANDLE) {
+//             vkFreeCommandBuffers(context->device, context->frames[i].commandPool, 1, &context->frames[i].mainCommandBuffer);
+//             vkDestroyCommandPool(context->device, context->frames[i].commandPool, NULL);
+//         }
+//     }
+//     vkDestroyDevice(context->device, NULL);
+//     vkDestroyInstance(context->instance, NULL);
+// }

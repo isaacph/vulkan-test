@@ -11,7 +11,7 @@ typedef struct SwapchainCleanup {
     VkSwapchainKHR swapchain;
     VkImageView imageViews[RC_SWAPCHAIN_LENGTH];
 } SwapchainCleanup;
-void cleanup_swapchain(void* ptr, sc_t id) {
+static void cleanup_swapchain(void* ptr, sc_t id) {
     SwapchainCleanup* params = (SwapchainCleanup*) ptr;
     vkDestroySwapchainKHR(params->device, params->swapchain, NULL);
     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
@@ -119,6 +119,7 @@ InitSwapchain rc_init_swapchain(InitSwapchainParams params, StaticCache* cleanup
     // create new swapchain
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     {
+        printf("New swapchain extent: %d x %d\n", extent.width, extent.height);
         VkSwapchainCreateInfoKHR createInfo = {
             .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
             .pNext = NULL,
@@ -154,7 +155,6 @@ InitSwapchain rc_init_swapchain(InitSwapchainParams params, StaticCache* cleanup
             snprintf(msg, 300, "Created swapchain has incorrect number of images: %u (should be %u)", imageCount, RC_SWAPCHAIN_LENGTH);
             exception_msg(msg);
         }
-        printf("Swapchain image count: %i\n", imageCount);
         VkImage swapchainImages[RC_SWAPCHAIN_LENGTH];
         check(vkGetSwapchainImagesKHR(params.device, swapchain, &imageCount, swapchainImages));
         for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
@@ -221,15 +221,15 @@ InitSwapchain rc_init_swapchain(InitSwapchainParams params, StaticCache* cleanup
     return ret;
 }
 
-void rc_size_change(RenderContext* context, uint32_t width, uint32_t height) {
-    if (context->instance == VK_NULL_HANDLE) {
-        // wait to init first
-        return;
-    }
-    // todo:
-    // check(vkWaitForFences(context->device, 1, &context->renderFence, true, 1000000000));
-    //rc_init_swapchain(context, width, height);
-    // rc_init_framebuffers(context);
-    // rc_init_pipelines(context);
-}
+// void rc_size_change(RenderContext* context, uint32_t width, uint32_t height) {
+//     if (context->instance == VK_NULL_HANDLE) {
+//         // wait to init first
+//         return;
+//     }
+//     // todo:
+//     // check(vkWaitForFences(context->device, 1, &context->renderFence, true, 1000000000));
+//     //rc_init_swapchain(context, width, height);
+//     // rc_init_framebuffers(context);
+//     // rc_init_pipelines(context);
+// }
 

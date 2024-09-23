@@ -323,50 +323,58 @@ void test_five_render(void) {
             frames[i] = ret.frames[i];
         }
     }
-    DrawParams params = {
-        .device = device,
-        .swapchain = swapchain,
-        .graphicsQueue = graphicsQueue,
-        .swapchainImages = { 0 },
-    };
-    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
-        params.swapchainImages[i] = swapchainImages[i];
-    }
-    for (int frameNumber = 0; frameNumber < 999999999; ++frameNumber) {
-        WindowUpdate update = rc_window_update(&windowHandle);
-        assert(!update.windowClosed);
-        // assert(update.shouldDraw); // break this by minimizing :)
+    {
+        DrawParams params = {
+            .device = device,
+            .graphicsQueue = graphicsQueue,
+            .swapchain = swapchain,
+            .swapchainImages = { 0 },
+        };
+        for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+            params.swapchainImages[i] = swapchainImages[i];
+        }
 
-        if (update.requireResize) {
-            printf("new size: %d x %d\n", size.width, size.height);
-            size = update.resize;
-            InitSwapchainParams params = {
-                .extent = size,
+        bool running = true;
+        // raise this limit to test resizing manually
+        for (int frameNumber = 0; frameNumber < 10000 && running; ++frameNumber) {
+            WindowUpdate update = rc_window_update(&windowHandle);
+            running = !update.windowClosed;
+            if (update.resize) {
+                printf("new size: %d x %d\n", size.width, size.height);
+                size = update.newSize;
+                InitSwapchainParams swapchainParams = {
+                    .extent = size,
 
-                .device = device,
-                .physicalDevice = physicalDevice,
-                .surface = surface,
-                .surfaceFormat = surfaceFormat,
-                .graphicsQueueFamily = graphicsQueueFamily,
+                    .device = device,
+                    .physicalDevice = physicalDevice,
+                    .surface = surface,
+                    .surfaceFormat = surfaceFormat,
+                    .graphicsQueueFamily = graphicsQueueFamily,
 
-                .oldSwapchain = swapchain,
-                .swapchainCleanupHandle = swapchainCleanupHandle,
-            };
-            InitSwapchain ret = rc_init_swapchain(params, &cleanup);
-            swapchain = ret.swapchain;
-            for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
-                swapchainImages[i] = ret.images[i];
+                    .oldSwapchain = swapchain,
+                    .swapchainCleanupHandle = swapchainCleanupHandle,
+                };
+                InitSwapchain ret = rc_init_swapchain(swapchainParams, &cleanup);
+                swapchain = ret.swapchain;
+                swapchainCleanupHandle = ret.swapchainCleanupHandle;
+                for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+                    swapchainImages[i] = ret.images[i];
+                }
+                // YOU MUST make sure to update the params!
+                params.swapchain = swapchain;
+                for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+                    params.swapchainImages[i] = ret.images[i];
+                }
             }
-            swapchainCleanupHandle = ret.swapchainCleanupHandle;
-        }
 
-        if (update.shouldDraw) {
-            printf("draw\n");
-            params.frame = frames[frameNumber % 2];
-            params.color = fabs(sin(frameNumber / 120.f));
-            rc_draw(params);
+            if (update.shouldDraw) {
+                params.frame = frames[frameNumber % 2];
+                params.color = fabs(sin(frameNumber / 120.f));
+                rc_draw(params);
+            }
         }
     }
+
     StaticCache_clean_up(&cleanup);
 }
 

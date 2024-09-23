@@ -14,6 +14,7 @@ typedef struct CleanupLoop {
 } CleanupLoop;
 static void cleanup_loop(void* ptr, sc_t id) {
     CleanupLoop* cleanup = (CleanupLoop*) ptr;
+    vkDeviceWaitIdle(cleanup->device);
     for (int i = 0; i < FRAME_OVERLAP; ++i) {
         vkFreeCommandBuffers(cleanup->device, cleanup->frames[i].commandPool, 1, &cleanup->frames[i].mainCommandBuffer);
         vkDestroyCommandPool(cleanup->device, cleanup->frames[i].commandPool, NULL);
@@ -131,12 +132,17 @@ void rc_draw(DrawParams params) {
     VkSwapchainKHR swapchain = params.swapchain;
     FrameData frame = params.frame;
     VkQueue graphicsQueue = params.graphicsQueue;
+    VkResult result = VK_SUCCESS;
 
     check(vkWaitForFences(device, 1, &frame.renderFence, true, 1000000000));
     check(vkResetFences(device, 1, &frame.renderFence));
 
     uint32_t swapchainImageIndex;
-    check(vkAcquireNextImageKHR(device, swapchain, 1000000000, frame.swapchainSemaphore, VK_NULL_HANDLE, &swapchainImageIndex));
+    result = vkAcquireNextImageKHR(device, swapchain, 1000000000, frame.swapchainSemaphore, VK_NULL_HANDLE, &swapchainImageIndex);
+    if (result != VK_SUCCESS) {
+        printf("Non-success vkAcquireNextImageKHR result: %d, returning\n", result);
+        return;
+    }
     SwapchainImageData* image = &params.swapchainImages[swapchainImageIndex];
 
     VkCommandBuffer cmd = frame.mainCommandBuffer;
@@ -148,14 +154,14 @@ void rc_draw(DrawParams params) {
         .pInheritanceInfo = NULL,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
-    check(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+    result = vkBeginCommandBuffer(cmd, &cmdBeginInfo);
 
     rc_transition_image(cmd, image->swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
     // make a clear-color from frame number. This will flash with a 120 frame period.
 	float flash = params.color;
     VkClearColorValue clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
 
-    VkImageSubresourceRange clearRange = basic_image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+    VkImageSubresourceRange clearRange = rc_basic_image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
     vkCmdClearColorImage(cmd, image->swapchainImage, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 
     rc_transition_image(cmd, image->swapchainImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -183,5 +189,8 @@ void rc_draw(DrawParams params) {
 
         .pImageIndices = &swapchainImageIndex,
     };
-    check(vkQueuePresentKHR(graphicsQueue, &presentInfo));
+    vkQueuePresentKHR(graphicsQueue, &presentInfo);
+    if (result != VK_SUCCESS) {
+        printf("Non-success VkQueuePresentKHR result: %d\n", result);
+    }
 }

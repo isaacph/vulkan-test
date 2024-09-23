@@ -19,7 +19,7 @@
 //
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lparam);
-RenderContext renderContext;
+// RenderContext renderContext;
 bool resizeMode = false;
 bool resetDrawBounds = false;
 bool disableDraw = false;

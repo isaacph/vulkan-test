@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-VkImageSubresourceRange basic_image_subresource_range(VkImageAspectFlags aspectMask) {
+VkImageSubresourceRange rc_basic_image_subresource_range(VkImageAspectFlags aspectMask) {
     VkImageSubresourceRange subImage = {
         .aspectMask = aspectMask,
         .baseMipLevel = 0,
@@ -26,7 +26,7 @@ void rc_transition_image(VkCommandBuffer cmd, VkImage image, VkImageLayout curre
     imageBarrier.newLayout = newLayout;
 
     VkImageAspectFlags aspectMask = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-    VkImageSubresourceRange subImage = basic_image_subresource_range(aspectMask);
+    VkImageSubresourceRange subImage = rc_basic_image_subresource_range(aspectMask);
     imageBarrier.subresourceRange = subImage;
     imageBarrier.image = image;
 
@@ -40,7 +40,7 @@ void rc_transition_image(VkCommandBuffer cmd, VkImage image, VkImageLayout curre
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent) {
+VkImageCreateInfo rc_image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent) {
     VkImageCreateInfo info = { 0 };
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     info.pNext = NULL;
@@ -62,7 +62,7 @@ VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usageFlag
     return info;
 }
 
-VkImageViewCreateInfo imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags) {
+VkImageViewCreateInfo rc_imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags) {
     // build an image view for the depth image to use for rendering
     VkImageViewCreateInfo info = { 0 };
     info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
