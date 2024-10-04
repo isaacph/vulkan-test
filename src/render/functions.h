@@ -75,6 +75,7 @@ EXTERN PFN_vkGetPhysicalDeviceSurfaceFormatsKHR vkGetPhysicalDeviceSurfaceFormat
 EXTERN PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR INIT;
 EXTERN PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR vkGetPhysicalDeviceWin32PresentationSupportKHR INIT;
 #endif
+EXTERN PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties INIT;
 
 // device functions
 EXTERN PFN_vkGetDeviceQueue vkGetDeviceQueue INIT;
@@ -117,6 +118,10 @@ EXTERN PFN_vkCmdDraw vkCmdDraw INIT;
 EXTERN PFN_vkCmdClearColorImage vkCmdClearColorImage INIT;
 EXTERN PFN_vkFreeCommandBuffers vkFreeCommandBuffers INIT;
 EXTERN PFN_vkCmdPipelineBarrier2 vkCmdPipelineBarrier2 INIT;
+EXTERN PFN_vkAllocateMemory vkAllocateMemory INIT;
+EXTERN PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements INIT;
+EXTERN PFN_vkBindImageMemory vkBindImageMemory INIT;
+EXTERN PFN_vkFreeMemory vkFreeMemory INIT;
 
 #undef EXTERN
 #undef INIT

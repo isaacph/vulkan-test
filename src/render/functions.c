@@ -38,6 +38,7 @@ void init_instance_functions(VkInstance instance) {
     check(vkCreateWin32SurfaceKHR = (PFN_vkCreateWin32SurfaceKHR)load(instance, "vkCreateWin32SurfaceKHR"));
     check(vkGetPhysicalDeviceWin32PresentationSupportKHR = (PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)load(instance, "vkGetPhysicalDeviceWin32PresentationSupportKHR"));
 #endif
+    check(vkGetPhysicalDeviceMemoryProperties = (PFN_vkGetPhysicalDeviceMemoryProperties)load(instance, "vkGetPhysicalDeviceMemoryProperties"));
 }
 
 void init_device_functions(VkDevice device) {
@@ -82,5 +83,9 @@ void init_device_functions(VkDevice device) {
     check(vkCmdPipelineBarrier2 = (PFN_vkCmdPipelineBarrier2)load(device, "vkCmdPipelineBarrier2"));
     check(vkCreateImage = (PFN_vkCreateImage)load(device, "vkCreateImage"));
     check(vkDestroyImage = (PFN_vkDestroyImage)load(device, "vkDestroyImage"));
+    check(vkAllocateMemory = (PFN_vkAllocateMemory)load(device, "vkAllocateMemory"));
+    check(vkGetImageMemoryRequirements = (PFN_vkGetImageMemoryRequirements)load(device, "vkGetImageMemoryRequirements"));
+    check(vkBindImageMemory = (PFN_vkBindImageMemory)load(device, "vkBindImageMemory"));
+    check(vkFreeMemory = (PFN_vkFreeMemory)load(device, "vkFreeMemory"));
 }
 

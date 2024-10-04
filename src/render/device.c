@@ -57,6 +57,7 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
         VkPhysicalDeviceProperties properties = {0};
         vkGetPhysicalDeviceProperties(device, &properties);
         printf("Checking graphics card: %s\n", properties.deviceName);
+        printf("Graphics card memory allocation limit: %d\n", properties.limits.maxMemoryAllocationCount);
 
         // if (!validateDeviceSurfaceCapabilities(device, surface)) {
         //     printf("Device/surface pair does not have sufficient capabilities");

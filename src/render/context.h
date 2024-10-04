@@ -141,5 +141,6 @@ VkImageSubresourceRange rc_basic_image_subresource_range(VkImageAspectFlags aspe
 void rc_transition_image(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
 VkImageViewCreateInfo rc_imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
 VkImageCreateInfo rc_image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
+void rc_copy_image_to_image(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
 
 #endif // RENDER_CONTEXT_H_INCLUDED 

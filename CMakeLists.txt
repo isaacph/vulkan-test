@@ -147,6 +147,7 @@ add_library(Main STATIC
     src/render/util.c
     src/render/win32.c
     src/render/wayland.c
+    src/render/memory.c
     src/util/stack.c
     src/util/uuid.c
     src/winmain.c
