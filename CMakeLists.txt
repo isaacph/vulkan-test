@@ -171,8 +171,8 @@ target_link_libraries(Game Main)
 # target_compile_definitions(VulkanTest PRIVATE UNICODE _UNICODE)
 # target_include_directories(VulkanTest PRIVATE src)
 
-
-add_subdirectory(test)
+# re-add once we work on unit testing vulkan things for real (right now everything will change too much for this to make sense)
+# add_subdirectory(test)
 
 # annoying, reevaluate later
 # if(MSVC)

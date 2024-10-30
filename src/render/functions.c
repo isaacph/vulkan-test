@@ -87,5 +87,6 @@ void init_device_functions(VkDevice device) {
     check(vkGetImageMemoryRequirements = (PFN_vkGetImageMemoryRequirements)load(device, "vkGetImageMemoryRequirements"));
     check(vkBindImageMemory = (PFN_vkBindImageMemory)load(device, "vkBindImageMemory"));
     check(vkFreeMemory = (PFN_vkFreeMemory)load(device, "vkFreeMemory"));
+    check(vkCmdBlitImage2 = (PFN_vkCmdBlitImage2)load(device, "vkCmdBlitImage2"));
 }
 

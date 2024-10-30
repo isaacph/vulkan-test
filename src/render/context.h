@@ -124,6 +124,9 @@ typedef struct DrawParams {
     float color;
     VkQueue graphicsQueue;
     SwapchainImageData swapchainImages[RC_SWAPCHAIN_LENGTH];
+    VkImage drawImage;
+    VkExtent2D drawImageExtent;
+    VkExtent2D swapchainExtent;
 } DrawParams;
 void rc_draw(DrawParams params);
 

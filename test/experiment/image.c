@@ -124,14 +124,14 @@ typedef struct TestImageFreeMemoryCleanup {
     VkDeviceMemory memory;
     VkImageView imageView;
 } TestImageFreeMemoryCleanup;
-void test_image_free_memory(void* user_ptr, sc_t id) {
+void test_run_free_memory(void* user_ptr, sc_t id) {
     TestImageFreeMemoryCleanup* ptr = (TestImageFreeMemoryCleanup*) user_ptr;
     vkDestroyImageView(ptr->device, ptr->imageView, NULL);
     vkFreeMemory(ptr->device, ptr->memory, NULL);
     vkDestroyImage(ptr->device, ptr->image, NULL);
     free(ptr);
 }
-void test_image(void) {
+void test_run(void) {
     StaticCache localCleanup = StaticCache_init(1024);
 	VkImageUsageFlags drawImageUsages = 0;
 	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -192,7 +192,7 @@ void test_image(void) {
     check(vkCreateImageView(device, &imageViewInfo, NULL, &imageView));
     cleanupObject->imageView = imageView;
 
-    StaticCache_add(&localCleanup, test_image_free_memory, (void*) cleanupObject);
+    StaticCache_add(&localCleanup, test_run_free_memory, (void*) cleanupObject);
 
 	VkClearColorValue clearValue = { { 1.0f, 0.0f, 0.0f, 1.0f } };
     // ok thing i'm hung up on as i go to sleep is this file was for testing with images
@@ -205,23 +205,10 @@ void test_image(void) {
     StaticCache_clean_up(&localCleanup);
 }
 
-void test_overallocate(void) {
-    // VkMemoryAllocateInfo info = {
-    //     .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-    //     .pNext = NULL,
-    //     .allocationSize = 0,
-    //     .memoryTypeIndex = 0,
-    // };
-    // VkDeviceMemory memory = { 0 };
-    // VkResult result = vkAllocateMemory(device, &info, NULL, &memory);
-    // printf("Allocate result: %d\n", result);
-}
-
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_log);
-    RUN_TEST(test_image);
-    RUN_TEST(test_overallocate);
+    RUN_TEST(test_run);
     return UNITY_END();
 }
 

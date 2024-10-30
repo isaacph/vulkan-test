@@ -3,10 +3,10 @@
 #include "functions.h"
 #include <math.h>
 #include <vulkan/vulkan_core.h>
-#include "render/util.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include "render/util.h"
 
 typedef struct CleanupLoop {
     VkDevice device;
@@ -147,7 +147,6 @@ void rc_draw(DrawParams params) {
 
     VkCommandBuffer cmd = frame.mainCommandBuffer;
     check(vkResetCommandBuffer(cmd, 0));
-
     VkCommandBufferBeginInfo cmdBeginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .pNext = NULL,
@@ -156,15 +155,18 @@ void rc_draw(DrawParams params) {
     };
     result = vkBeginCommandBuffer(cmd, &cmdBeginInfo);
 
-    rc_transition_image(cmd, image->swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-    // make a clear-color from frame number. This will flash with a 120 frame period.
+    // write to intermediate image
+    rc_transition_image(cmd, params.drawImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 	float flash = params.color;
     VkClearColorValue clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
-
     VkImageSubresourceRange clearRange = rc_basic_image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
-    vkCmdClearColorImage(cmd, image->swapchainImage, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+    vkCmdClearColorImage(cmd, params.drawImage, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+    rc_transition_image(cmd, params.drawImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-    rc_transition_image(cmd, image->swapchainImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    // write to swapchain image
+    rc_transition_image(cmd, image->swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    rc_copy_image_to_image(cmd, params.drawImage, image->swapchainImage, params.drawImageExtent, params.swapchainExtent);
+    rc_transition_image(cmd, image->swapchainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     check(vkEndCommandBuffer(cmd));
 
@@ -189,7 +191,7 @@ void rc_draw(DrawParams params) {
 
         .pImageIndices = &swapchainImageIndex,
     };
-    vkQueuePresentKHR(graphicsQueue, &presentInfo);
+    result = vkQueuePresentKHR(graphicsQueue, &presentInfo);
     if (result != VK_SUCCESS) {
         printf("Non-success VkQueuePresentKHR result: %d\n", result);
     }

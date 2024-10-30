@@ -5,6 +5,7 @@
 #include "util/backtrace.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
 typedef struct SwapchainCleanup {
     VkDevice device;
@@ -32,6 +33,8 @@ InitSwapchain rc_init_swapchain(InitSwapchainParams params, StaticCache* cleanup
     if (params.surfaceFormat.format == VK_FORMAT_UNDEFINED) {
         exception_msg("Must decide surface format before creating swapchain\n");
     }
+    assert(params.extent.width > 0);
+    assert(params.extent.height > 0);
 
     // validate surface extent and image counts
     VkExtent2D extent = { 0 };

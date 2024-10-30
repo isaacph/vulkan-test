@@ -122,6 +122,7 @@ EXTERN PFN_vkAllocateMemory vkAllocateMemory INIT;
 EXTERN PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements INIT;
 EXTERN PFN_vkBindImageMemory vkBindImageMemory INIT;
 EXTERN PFN_vkFreeMemory vkFreeMemory INIT;
+EXTERN PFN_vkCmdBlitImage2 vkCmdBlitImage2 INIT;
 
 #undef EXTERN
 #undef INIT

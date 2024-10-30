@@ -23,3 +23,5 @@ target_link_libraries(util_uuid_c Main unity::framework)
 add_executable(experiment_image_c experiment/image.c)
 target_link_libraries(experiment_image_c Main unity::framework)
 
+add_executable(experiment_exp1_c experiment/exp1.c)
+target_link_libraries(experiment_exp1_c Main)

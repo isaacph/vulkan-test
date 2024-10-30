@@ -4,10 +4,10 @@ Trying a Vulkan test with MSVC and Vulkan loader, no other runtime dependencies
 
 ### Backlog
 
-* Finish utf8/utf16 converter
-* Finish making Windows WSI have a platform-agnostic interface (using the utf8/utf16 converter once complete)
-* Implement WSI for Wayland instead of using GLFW (I'm that masochistic)
 * Continue implementing the Vulkan rendering pipeline
+* Finish vkguide.dev-equivalent implementation
+  * For this, I plan to rewrite a vulkan memory allocator. I figured out I really do need basically the whole thing because ...
+* Eventually make tests/ work in some sensible way. Right now just ignoring that exists anymore.
 
 ### Weird issues
 
