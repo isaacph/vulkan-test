@@ -88,5 +88,15 @@ void init_device_functions(VkDevice device) {
     check(vkBindImageMemory = (PFN_vkBindImageMemory)load(device, "vkBindImageMemory"));
     check(vkFreeMemory = (PFN_vkFreeMemory)load(device, "vkFreeMemory"));
     check(vkCmdBlitImage2 = (PFN_vkCmdBlitImage2)load(device, "vkCmdBlitImage2"));
+    check(vkCreateDescriptorPool = (PFN_vkCreateDescriptorPool)load(device, "vkCreateDescriptorPool"));
+    check(vkDestroyDescriptorPool = (PFN_vkDestroyDescriptorPool)load(device, "vkDestroyDescriptorPool"));
+    check(vkCreateDescriptorSetLayout = (PFN_vkCreateDescriptorSetLayout)load(device, "vkCreateDescriptorSetLayout"));
+    check(vkDestroyDescriptorSetLayout = (PFN_vkDestroyDescriptorSetLayout)load(device, "vkDestroyDescriptorSetLayout"));
+    check(vkAllocateDescriptorSets = (PFN_vkAllocateDescriptorSets)load(device, "vkAllocateDescriptorSets"));
+    check(vkFreeDescriptorSets = (PFN_vkFreeDescriptorSets)load(device, "vkFreeDescriptorSets"));
+    check(vkUpdateDescriptorSets = (PFN_vkUpdateDescriptorSets)load(device, "vkUpdateDescriptorSets"));
+    check(vkCmdBindDescriptorSets = (PFN_vkCmdBindDescriptorSets)load(device, "vkCmdBindDescriptorSets"));
+    check(vkCmdDispatch = (PFN_vkCmdDispatch)load(device, "vkCmdDispatch"));
+    check(vkCreateComputePipelines = (PFN_vkCreateComputePipelines)load(device, "vkCreateComputePipelines"));
 }
 

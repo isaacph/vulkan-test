@@ -2,6 +2,7 @@
 #define RENDER_UTIL_H_INCLUDED
 
 #include "../util.h"
+#include "../util/memory.h"
 #include <stdint.h>
 #include "functions.h"
 #include <stdbool.h>
@@ -14,9 +15,12 @@ void print_VkExtensionProperties(uint32_t count, VkExtensionProperties* extensio
 void print_VkLayerProperties(uint32_t count, VkLayerProperties* layers);
 void check(VkResult res);
 
+void rc_load_shader_module(VkDevice device,
+    unsigned char* file, unsigned int file_len,
+    VkShaderModule* outShaderModule,
+    StaticCache* cleanup);
+
 // void interpret_VK_API_VERSION(uint32_t version, char* out_memory, uint64_t memory_length);
-// void interpret_VkExtensionProperties(uint32_t count, VkExtensionProperties* extensions, char* out_memory, uint64_t memory_length);
 // void interpret_VkLayerProperties(uint32_t count, VkLayerProperties* layers, char* out_memory, uint64_t memory_length);
-
-
+// void interpret_VkExtensionProperties(uint32_t count, VkExtensionProperties* extensions, char* out_memory, uint64_t memory_length);
 #endif

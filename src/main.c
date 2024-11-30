@@ -1,9 +1,11 @@
+#include "util/backtrace.h"
 #include "util/memory.h"
 #include "render/context.h"
 #include <assert.h>
 #include <stdio.h>
 #include <util/backtrace.h>
 #include <math.h>
+#include "shaders_generated.h"
 
 typedef struct AllocationCleanup {
     VkDevice device;
@@ -182,7 +184,165 @@ SecondSwapchainImage rc_init_second_swapchain_image(SecondSwapchainImageInit par
     };
 }
 
+typedef struct DescriptorPoolsCleanup {
+    VkDevice device;
+    VkDescriptorPool pool;
+    VkDescriptorSetLayout layout;
+    VkDescriptorSet set;
+} DescriptorPoolsCleanup;
+void cleanup_descriptor_pools(void* user_ptr, sc_t id) {
+    DescriptorPoolsCleanup* cleanup = (DescriptorPoolsCleanup*) user_ptr;
+    vkFreeDescriptorSets(cleanup->device, cleanup->pool, 1, &cleanup->set);
+    vkDestroyDescriptorSetLayout(cleanup->device, cleanup->layout, NULL);
+    vkDestroyDescriptorPool(cleanup->device, cleanup->pool, NULL);
+    free(cleanup);
+}
+typedef struct InitDescriptors {
+    VkDescriptorPool pool;
+    VkDescriptorSetLayout layout;
+    VkDescriptorSet set;
+} InitDescriptors;
+InitDescriptors rc_init_descriptors(VkDevice device, VkImageView drawImageView, StaticCache* cleanup) {
+    VkDescriptorPool pool = VK_NULL_HANDLE;
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+    VkDescriptorSet set = VK_NULL_HANDLE;
+
+    // descriptor pool
+    uint32_t maxSets = 10;
+    VkDescriptorPoolSize poolSizes[] = {
+        (VkDescriptorPoolSize) {
+            .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = (uint32_t) (1 * maxSets), // ratio x maxSets
+        },
+    };
+    VkDescriptorPoolCreateInfo info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags = 0,
+        .maxSets = 1,
+        .poolSizeCount = sizeof(poolSizes) / sizeof(VkDescriptorPoolSize),
+        .pPoolSizes = poolSizes,
+    };
+    check(vkCreateDescriptorPool(device, &info, NULL, &pool));
+
+    // descriptor set layout
+    VkDescriptorSetLayoutBinding bindings[] = {
+        (VkDescriptorSetLayoutBinding) {
+            .binding = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+        },
+    };
+    VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pBindings = bindings,
+        .bindingCount = sizeof(bindings) / sizeof(VkDescriptorSetLayoutBinding),
+        .flags = 0,
+    };
+    check(vkCreateDescriptorSetLayout(device, &layoutCreateInfo, NULL, &layout));
+
+    // descriptor set
+    VkDescriptorSetAllocateInfo allocInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = NULL,
+        .descriptorPool = pool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &layout,
+    };
+    check(vkAllocateDescriptorSets(device, &allocInfo, &set));
+
+    // now we have to point the descriptor set to be able to write to drawImage
+    VkDescriptorImageInfo imgInfo = {
+        .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .imageView = drawImageView,
+    };
+    VkWriteDescriptorSet drawImageWrite = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = NULL,
+        .dstBinding = 0,
+        .dstSet = set,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        .pImageInfo = &imgInfo,
+    };
+    vkUpdateDescriptorSets(device, 1, &drawImageWrite, 0, NULL);
+
+    DescriptorPoolsCleanup* cleanupObj = malloc(sizeof(DescriptorPoolsCleanup));
+    *cleanupObj = (DescriptorPoolsCleanup) {
+        .device = device,
+        .pool = pool,
+        .layout = layout,
+    };
+    StaticCache_add(cleanup, cleanup_descriptor_pools, cleanupObj);
+    return (InitDescriptors) {
+        .pool = pool,
+        .layout = layout,
+        .set = set,
+    };
+}
+
+typedef struct CleanupPipelines {
+    VkDevice device;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline pipeline;
+} CleanupPipelines;
+static void cleanup_pipelines(void* user_ptr, sc_t id) {
+    CleanupPipelines* ptr = (CleanupPipelines*) user_ptr;
+    vkDestroyPipelineLayout(ptr->device, ptr->pipelineLayout, NULL);
+    vkDestroyPipeline(ptr->device, ptr->pipeline, NULL);
+    free(ptr);
+}
+typedef struct InitPipelines {
+    VkPipelineLayout gradientPipelineLayout;
+    VkPipeline gradientPipeline;
+} InitPipelines;
+InitPipelines rc_init_pipelines(VkDevice device, VkDescriptorSetLayout layout, StaticCache* cleanup) {
+    VkPipelineLayout gradientPipelineLayout = VK_NULL_HANDLE;
+    VkPipeline gradientPipeline = VK_NULL_HANDLE;
+
+    VkPipelineLayoutCreateInfo computeLayout = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .pNext = NULL,
+        .pSetLayouts = &layout,
+        .setLayoutCount = 1,
+    };
+    check(vkCreatePipelineLayout(device, &computeLayout, NULL, &gradientPipelineLayout));
+    VkShaderModule computeDrawShader = VK_NULL_HANDLE;
+    rc_load_shader_module(device, SHADER_gradient_comp, SHADER_gradient_comp_len, &computeDrawShader, cleanup);
+
+    VkPipelineShaderStageCreateInfo stageInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = NULL,
+        .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+        .module = computeDrawShader,
+        .pName = "main",
+    };
+
+    VkComputePipelineCreateInfo computePipelineCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .pNext = NULL,
+        .layout = gradientPipelineLayout,
+        .stage = stageInfo,
+    };
+    check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, NULL, &gradientPipeline));
+
+    CleanupPipelines* cleanupObj = malloc(sizeof(CleanupPipelines));
+    *cleanupObj = (CleanupPipelines) {
+        .device = device,
+        .pipelineLayout = gradientPipelineLayout,
+        .pipeline = gradientPipeline,
+    };
+    StaticCache_add(cleanup, cleanup_pipelines, cleanupObj);
+
+    return (InitPipelines) {
+        .gradientPipeline = gradientPipeline,
+        .gradientPipelineLayout = gradientPipelineLayout,
+    };
+}
+
 int main() {
+    init_exceptions(false);
+
     StaticCache cleanup = StaticCache_init(1000);
     VkInstance instance = VK_NULL_HANDLE;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
@@ -210,6 +370,14 @@ int main() {
         allocations.allocationOffset[i] = 0;
     }
     allocations.toDeallocate = calloc(VK_MAX_MEMORY_TYPES, sizeof(VkDeviceMemory));
+
+    VkDescriptorPool pool = VK_NULL_HANDLE;
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+    VkDescriptorSet set = VK_NULL_HANDLE;
+
+    VkPipelineLayout gradientPipelineLayout = VK_NULL_HANDLE;
+    VkPipeline gradientPipeline = VK_NULL_HANDLE;
+
     {
         PFN_vkGetInstanceProcAddr proc_addr = rc_proc_addr();
         InitInstance init = rc_init_instance(proc_addr, false, &cleanup);
@@ -350,6 +518,18 @@ int main() {
     //     check(vkBindImageMemory(device, image, allocation, 0));
     //     cleanupObject->memory = allocation;
     // }
+    // init descriptor set
+    {
+        InitDescriptors ret = rc_init_descriptors(device, drawImageView, &cleanup);
+        pool = ret.pool;
+        layout = ret.layout;
+        set = ret.set;
+    }
+    {
+        InitPipelines ret = rc_init_pipelines(device, layout, &cleanup);
+        gradientPipelineLayout = ret.gradientPipelineLayout;
+        gradientPipeline = ret.gradientPipeline;
+    }
     // init the image that we draw to
     {
         SecondSwapchainImageInit params = {
@@ -389,15 +569,14 @@ int main() {
             WindowUpdate update = rc_window_update(&windowHandle);
             running = !update.windowClosed;
             if (update.resize) {
-                printf("new size: %d x %d\n", size.width, size.height);
                 size = update.newSize;
+                printf("new size: %d x %d\n", size.width, size.height);
                 if (size.width < 0 || size.height < 0) {
                     size = (VkExtent2D) {
                         .width = 0,
                         .height = 0,
                     };
                 }
-                printf("%dx%d\n", size.width, size.height);
                 if (size.width * size.height > 0) {
                     InitSwapchainParams swapchainParams = {
                         .extent = size,
@@ -454,6 +633,9 @@ int main() {
                 params.swapchainExtent = size;
                 params.drawImageExtent = size;
                 params.drawImage = drawImage;
+                params.drawImageDescriptorSet = set;
+                params.gradientPipeline = gradientPipeline;
+                params.gradientPipelineLayout = gradientPipelineLayout;
                 rc_draw(params);
             }
         }

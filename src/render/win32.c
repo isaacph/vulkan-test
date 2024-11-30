@@ -178,6 +178,15 @@ static void onDestroyWin32(void* castToSurface, sc_t id) {
     }
 }
 
+static void recordSize(HWND hwnd, WindowUserData* userData) {
+    RECT windowSize;
+    GetClientRect(hwnd, &windowSize);
+    int width = windowSize.right - windowSize.left;
+    int height = windowSize.bottom - windowSize.top;
+    userData->newWidth = width;
+    userData->newHeight = height;
+}
+
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     // printf("Event: %u\n", uMsg);
     RECT rect;
@@ -186,9 +195,13 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
     case WM_SYSCOMMAND:
         // printf("Sys: %Iu\n", wParam);
         if (wParam == SC_MINIMIZE) {
-            userData->resizeQueued = true;
+            printf("Minimize window\n");
+            userData->shouldDraw = false;
         } else if (wParam == SC_RESTORE) {
+            printf("Restore window\n");
             userData->resizeQueued = true;
+            userData->shouldDraw = true;
+            recordSize(hwnd, userData);
         }
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
     case WM_DESTROY:
@@ -203,7 +216,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         ValidateRect(hwnd, NULL);
         return 0;
     case WM_SIZE:
-        if (wParam != SIZE_MINIMIZED && (userData->resizeQueued || wParam == SIZE_MAXIMIZED)) {
+        if (wParam != SIZE_MINIMIZED) {
             userData->resizeQueued = true;
             userData->newHeight = (int) (lParam >> 16) & 0xFFFF;
             userData->newWidth = (int) lParam & 0xFFFF;
@@ -211,10 +224,12 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         return 0;
     case WM_ENTERSIZEMOVE:
         userData->resizeQueued = true;
+        recordSize(hwnd, userData);
         printf("Enter size move\n");
         return 0;
     case WM_EXITSIZEMOVE:
         userData->resizeQueued = true;
+        recordSize(hwnd, userData);
         printf("Exit size move\n");
         return 0;
     }

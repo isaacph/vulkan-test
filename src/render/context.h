@@ -127,6 +127,9 @@ typedef struct DrawParams {
     VkImage drawImage;
     VkExtent2D drawImageExtent;
     VkExtent2D swapchainExtent;
+    VkDescriptorSet drawImageDescriptorSet;
+    VkPipelineLayout gradientPipelineLayout;
+    VkPipeline gradientPipeline;
 } DrawParams;
 void rc_draw(DrawParams params);
 

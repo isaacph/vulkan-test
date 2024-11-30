@@ -157,10 +157,18 @@ void rc_draw(DrawParams params) {
 
     // write to intermediate image
     rc_transition_image(cmd, params.drawImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-	float flash = params.color;
-    VkClearColorValue clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
-    VkImageSubresourceRange clearRange = rc_basic_image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
-    vkCmdClearColorImage(cmd, params.drawImage, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+
+    // to clear the color
+	// float flash = params.color;
+    // VkClearColorValue clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
+    // VkImageSubresourceRange clearRange = rc_basic_image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+    // vkCmdClearColorImage(cmd, params.drawImage, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+
+    // to use compute shader
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, params.gradientPipeline);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, params.gradientPipelineLayout, 0, 1, &params.drawImageDescriptorSet, 0, NULL);
+    vkCmdDispatch(cmd, ceil(params.drawImageExtent.width / 16.0), ceil(params.drawImageExtent.height / 16.0), 1);
+
     rc_transition_image(cmd, params.drawImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
     // write to swapchain image

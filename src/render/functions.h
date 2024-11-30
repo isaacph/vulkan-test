@@ -123,6 +123,16 @@ EXTERN PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements INIT;
 EXTERN PFN_vkBindImageMemory vkBindImageMemory INIT;
 EXTERN PFN_vkFreeMemory vkFreeMemory INIT;
 EXTERN PFN_vkCmdBlitImage2 vkCmdBlitImage2 INIT;
+EXTERN PFN_vkCreateDescriptorPool vkCreateDescriptorPool INIT;
+EXTERN PFN_vkDestroyDescriptorPool vkDestroyDescriptorPool INIT;
+EXTERN PFN_vkCreateDescriptorSetLayout vkCreateDescriptorSetLayout INIT;
+EXTERN PFN_vkDestroyDescriptorSetLayout vkDestroyDescriptorSetLayout INIT;
+EXTERN PFN_vkAllocateDescriptorSets vkAllocateDescriptorSets INIT;
+EXTERN PFN_vkFreeDescriptorSets vkFreeDescriptorSets INIT;
+EXTERN PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets INIT;
+EXTERN PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets INIT;
+EXTERN PFN_vkCmdDispatch vkCmdDispatch INIT;
+EXTERN PFN_vkCreateComputePipelines vkCreateComputePipelines INIT;
 
 #undef EXTERN
 #undef INIT
