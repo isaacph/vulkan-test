@@ -23,7 +23,6 @@ void main()
             color.y = float(texelCoord.y)/(size.y);	
         }
     
-        color = vec4(1.0, 1.0, 1.0, 1.0);
         imageStore(image, texelCoord, color);
     }
 }

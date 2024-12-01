@@ -519,17 +519,6 @@ int main() {
     //     cleanupObject->memory = allocation;
     // }
     // init descriptor set
-    {
-        InitDescriptors ret = rc_init_descriptors(device, drawImageView, &cleanup);
-        pool = ret.pool;
-        layout = ret.layout;
-        set = ret.set;
-    }
-    {
-        InitPipelines ret = rc_init_pipelines(device, layout, &cleanup);
-        gradientPipelineLayout = ret.gradientPipelineLayout;
-        gradientPipeline = ret.gradientPipeline;
-    }
     // init the image that we draw to
     {
         SecondSwapchainImageInit params = {
@@ -550,6 +539,17 @@ int main() {
         drawImageCleanup = ret.drawImageCleanup;
         drawImageChosenMemoryType = ret.drawImageChosenMemoryType;
         drawImageMemoryPosition = ret.drawImageMemoryPosition;
+    }
+    {
+        InitDescriptors ret = rc_init_descriptors(device, drawImageView, &cleanup);
+        pool = ret.pool;
+        layout = ret.layout;
+        set = ret.set;
+    }
+    {
+        InitPipelines ret = rc_init_pipelines(device, layout, &cleanup);
+        gradientPipelineLayout = ret.gradientPipelineLayout;
+        gradientPipeline = ret.gradientPipeline;
     }
     {
         DrawParams params = {
@@ -623,6 +623,22 @@ int main() {
                         drawImageChosenMemoryType = ret.drawImageChosenMemoryType;
                         drawImageMemoryPosition = ret.drawImageMemoryPosition;
                     }
+
+                    // now we have to point the descriptor set to be able to write to drawImage
+                    VkDescriptorImageInfo imgInfo = {
+                        .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+                        .imageView = drawImageView,
+                    };
+                    VkWriteDescriptorSet drawImageWrite = {
+                        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                        .pNext = NULL,
+                        .dstBinding = 0,
+                        .dstSet = set,
+                        .descriptorCount = 1,
+                        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                        .pImageInfo = &imgInfo,
+                    };
+                    vkUpdateDescriptorSets(device, 1, &drawImageWrite, 0, NULL);
                 }
             }
 
