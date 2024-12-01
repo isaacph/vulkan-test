@@ -169,6 +169,50 @@ void rc_draw(DrawParams params) {
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, params.gradientPipelineLayout, 0, 1, &params.drawImageDescriptorSet, 0, NULL);
     vkCmdDispatch(cmd, ceil(params.drawImageExtent.width / 16.0), ceil(params.drawImageExtent.height / 16.0), 1);
 
+    // write for color pipeline
+    rc_transition_image(cmd, params.drawImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    // draw triangle
+    VkRenderingAttachmentInfo colorAttachment = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .pNext = NULL,
+        .imageView = params.drawImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD, // or VK_ATTACHMENT_LOAD_OP_CLEAR if we want to clear
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        // .clearValue = some_clear_value, // if we want to clear
+    };
+    VkRenderingInfo renderInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .pNext = NULL,
+        .renderArea = (VkRect2D) {
+            .offset = (VkOffset2D) { 0, 0 },
+            .extent = params.drawImageExtent,
+        },
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachment,
+        .pDepthAttachment = NULL,
+        .pStencilAttachment = NULL,
+    };
+    vkCmdBeginRendering(cmd, &renderInfo);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, params.trianglePipeline);
+    VkViewport viewport = {
+        .x = 0,
+        .y = 0,
+        .width = params.drawImageExtent.width,
+        .height = params.drawImageExtent.height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    VkRect2D scissor = {
+        .offset = (VkOffset2D) { 0.0f, 0.0f },
+        .extent = params.drawImageExtent,
+    };
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+    vkCmdDraw(cmd, 3, 1, 0, 0); // draws 3 vertices
+    vkCmdEndRendering(cmd);
     rc_transition_image(cmd, params.drawImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
     // write to swapchain image

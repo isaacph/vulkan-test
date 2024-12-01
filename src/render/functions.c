@@ -98,5 +98,9 @@ void init_device_functions(VkDevice device) {
     check(vkCmdBindDescriptorSets = (PFN_vkCmdBindDescriptorSets)load(device, "vkCmdBindDescriptorSets"));
     check(vkCmdDispatch = (PFN_vkCmdDispatch)load(device, "vkCmdDispatch"));
     check(vkCreateComputePipelines = (PFN_vkCreateComputePipelines)load(device, "vkCreateComputePipelines"));
+    check(vkCmdBeginRendering = (PFN_vkCmdBeginRendering)load(device, "vkCmdBeginRendering"));
+    check(vkCmdEndRendering = (PFN_vkCmdEndRendering)load(device, "vkCmdEndRendering"));
+    check(vkCmdSetViewport = (PFN_vkCmdSetViewport)load(device, "vkCmdSetViewport"));
+    check(vkCmdSetScissor = (PFN_vkCmdSetScissor)load(device, "vkCmdSetScissor"));
 }
 

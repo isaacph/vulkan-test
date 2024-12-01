@@ -133,6 +133,10 @@ EXTERN PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets INIT;
 EXTERN PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets INIT;
 EXTERN PFN_vkCmdDispatch vkCmdDispatch INIT;
 EXTERN PFN_vkCreateComputePipelines vkCreateComputePipelines INIT;
+EXTERN PFN_vkCmdBeginRendering vkCmdBeginRendering INIT;
+EXTERN PFN_vkCmdEndRendering vkCmdEndRendering INIT;
+EXTERN PFN_vkCmdSetViewport vkCmdSetViewport INIT;
+EXTERN PFN_vkCmdSetScissor vkCmdSetScissor INIT;
 
 #undef EXTERN
 #undef INIT

@@ -125,11 +125,14 @@ typedef struct DrawParams {
     VkQueue graphicsQueue;
     SwapchainImageData swapchainImages[RC_SWAPCHAIN_LENGTH];
     VkImage drawImage;
+    VkImageView drawImageView;
     VkExtent2D drawImageExtent;
     VkExtent2D swapchainExtent;
     VkDescriptorSet drawImageDescriptorSet;
     VkPipelineLayout gradientPipelineLayout;
     VkPipeline gradientPipeline;
+    VkPipelineLayout trianglePipelineLayout;
+    VkPipeline trianglePipeline;
 } DrawParams;
 void rc_draw(DrawParams params);
 

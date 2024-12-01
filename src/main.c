@@ -76,6 +76,7 @@ typedef struct SecondSwapchainImageInit {
 typedef struct SecondSwapchainImage {
     VkImage drawImage; // new version of this image
     VkImageView drawImageView;
+    VkFormat drawImageFormat;
     SecondSwapchainImageCleanup* drawImageCleanup; // new version of cleanup handle
     uint32_t drawImageChosenMemoryType;
     VkDeviceSize drawImageMemoryPosition;
@@ -181,6 +182,7 @@ SecondSwapchainImage rc_init_second_swapchain_image(SecondSwapchainImageInit par
         .drawImageCleanup = drawImageCleanup,
         .drawImageChosenMemoryType = drawImageChosenMemoryType,
         .drawImageMemoryPosition = drawImageMemoryPosition,
+        .drawImageFormat = imageFormat,
     };
 }
 
@@ -293,10 +295,10 @@ static void cleanup_pipelines(void* user_ptr, sc_t id) {
     free(ptr);
 }
 typedef struct InitPipelines {
-    VkPipelineLayout gradientPipelineLayout;
-    VkPipeline gradientPipeline;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline pipeline;
 } InitPipelines;
-InitPipelines rc_init_pipelines(VkDevice device, VkDescriptorSetLayout layout, StaticCache* cleanup) {
+InitPipelines rc_init_compute_pipelines(VkDevice device, VkDescriptorSetLayout layout, StaticCache* cleanup) {
     VkPipelineLayout gradientPipelineLayout = VK_NULL_HANDLE;
     VkPipeline gradientPipeline = VK_NULL_HANDLE;
 
@@ -335,10 +337,149 @@ InitPipelines rc_init_pipelines(VkDevice device, VkDescriptorSetLayout layout, S
     StaticCache_add(cleanup, cleanup_pipelines, cleanupObj);
 
     return (InitPipelines) {
-        .gradientPipeline = gradientPipeline,
-        .gradientPipelineLayout = gradientPipelineLayout,
+        .pipeline = gradientPipeline,
+        .pipelineLayout = gradientPipelineLayout,
     };
 }
+
+InitPipelines rc_init_graphics_pipelines(VkDevice device, VkFormat drawImageFormat, StaticCache* cleanup) {
+    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+    VkPipeline pipeline = VK_NULL_HANDLE;
+
+    VkShaderModule triangleVertexShader = VK_NULL_HANDLE;
+    VkShaderModule triangleFragShader = VK_NULL_HANDLE;
+    rc_load_shader_module(device, SHADER_triangle_vert, SHADER_triangle_vert_len, &triangleVertexShader, cleanup);
+    rc_load_shader_module(device, SHADER_triangle_frag, SHADER_triangle_frag_len, &triangleFragShader, cleanup);
+
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo = (VkPipelineLayoutCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .pNext = NULL,
+        .pSetLayouts = NULL,
+        .setLayoutCount = 0,
+    };
+    check(vkCreatePipelineLayout(device, &pipelineLayoutInfo, NULL, &pipelineLayout));
+
+    VkFormat colorAttachmentFormat = drawImageFormat;
+    VkFormat depthAttachmentFormat = VK_FORMAT_UNDEFINED;
+    VkPipelineRenderingCreateInfo renderInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+        .pNext = NULL,
+        .colorAttachmentCount = 1,
+        .pColorAttachmentFormats = &colorAttachmentFormat,
+        .depthAttachmentFormat = depthAttachmentFormat,
+    };
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        // keep empty since we are using a "pull" vertex input model instead of fixed (which is this)
+    };
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE,
+    };
+    VkPipelineViewportStateCreateInfo viewportState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .viewportCount = 1,
+        .scissorCount = 1,
+        // keep "empty/default" since we are using dynamic state for this
+    };
+    VkPipelineRasterizationStateCreateInfo rasterizer = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .lineWidth = 1.0f,
+        .cullMode = VK_CULL_MODE_NONE,
+        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+    };
+    VkPipelineMultisampleStateCreateInfo multisampling = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .sampleShadingEnable = VK_FALSE,
+        // no sampling (1 sample per pixel)
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .minSampleShading = 1.0f,
+        .pSampleMask = NULL,
+        // no alpha to coverage (?????) either
+        .alphaToCoverageEnable = VK_FALSE,
+        .alphaToOneEnable = VK_FALSE,
+    };
+    VkPipelineColorBlendAttachmentState colorBlendAttachment = {
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+        .blendEnable = VK_FALSE,
+    };
+    VkPipelineColorBlendStateCreateInfo colorBlending = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY,
+        .attachmentCount = 1,
+        .pAttachments = &colorBlendAttachment,
+    };
+    VkPipelineDepthStencilStateCreateInfo depthStencil = {
+        .depthTestEnable = VK_FALSE,
+        .depthWriteEnable = VK_FALSE,
+        .depthCompareOp = VK_COMPARE_OP_NEVER,
+        .depthBoundsTestEnable = VK_FALSE,
+        .stencilTestEnable = VK_FALSE,
+        .front = (VkStencilOpState) { 0 },
+        .back = (VkStencilOpState) { 0 },
+        .minDepthBounds = 0.0f,
+        .maxDepthBounds = 1.0f,
+    };
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = {
+        (VkPipelineShaderStageCreateInfo) {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = NULL,
+            .stage = VK_SHADER_STAGE_VERTEX_BIT,
+            .module = triangleVertexShader,
+            .pName = "main",
+        },
+        (VkPipelineShaderStageCreateInfo) {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = NULL,
+            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .module = triangleFragShader,
+            .pName = "main",
+        },
+    };
+
+    VkDynamicState state[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    VkPipelineDynamicStateCreateInfo dynamicInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .pDynamicStates = state,
+        .dynamicStateCount = sizeof(state) / sizeof(VkDynamicState),
+    };
+
+    VkGraphicsPipelineCreateInfo pipelineInfo = {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext = &renderInfo,
+        .stageCount = sizeof(shaderStages) / sizeof(VkPipelineShaderStageCreateInfo),
+        .pStages = shaderStages,
+        .pVertexInputState = &vertexInputInfo,
+        .pInputAssemblyState = &inputAssembly,
+        .pViewportState = &viewportState,
+        .pRasterizationState = &rasterizer,
+        .pMultisampleState = &multisampling,
+        .pColorBlendState = &colorBlending,
+        .pDepthStencilState = &depthStencil,
+        .pDynamicState = &dynamicInfo,
+    };
+    check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pipeline));
+
+    CleanupPipelines* cleanupObj = malloc(sizeof(CleanupPipelines));
+    *cleanupObj = (CleanupPipelines) {
+        .device = device,
+        .pipelineLayout = pipelineLayout,
+        .pipeline = pipeline,
+    };
+    StaticCache_add(cleanup, cleanup_pipelines, cleanupObj);
+
+    return (InitPipelines) {
+        .pipeline = pipeline,
+        .pipelineLayout = pipelineLayout,
+    };
+}
+
 
 int main() {
     init_exceptions(false);
@@ -360,6 +501,7 @@ int main() {
 
     VkImage drawImage = VK_NULL_HANDLE; // the image we draw directly to, copied to swapchain
     VkImageView drawImageView = VK_NULL_HANDLE;
+    VkFormat drawImageFormat = 0;
     SecondSwapchainImageCleanup* drawImageCleanup = NULL;
     uint32_t drawImageChosenMemoryType = 0; // we need to be able to reallocate this memory on resize so record its properties here
     VkDeviceSize drawImageMemoryPosition = 0;
@@ -377,6 +519,8 @@ int main() {
 
     VkPipelineLayout gradientPipelineLayout = VK_NULL_HANDLE;
     VkPipeline gradientPipeline = VK_NULL_HANDLE;
+    VkPipelineLayout trianglePipelineLayout = VK_NULL_HANDLE;
+    VkPipeline trianglePipeline = VK_NULL_HANDLE;
 
     {
         PFN_vkGetInstanceProcAddr proc_addr = rc_proc_addr();
@@ -536,6 +680,7 @@ int main() {
         SecondSwapchainImage ret = rc_init_second_swapchain_image(params);
         drawImage = ret.drawImage;
         drawImageView = ret.drawImageView;
+        drawImageFormat = ret.drawImageFormat;
         drawImageCleanup = ret.drawImageCleanup;
         drawImageChosenMemoryType = ret.drawImageChosenMemoryType;
         drawImageMemoryPosition = ret.drawImageMemoryPosition;
@@ -547,9 +692,14 @@ int main() {
         set = ret.set;
     }
     {
-        InitPipelines ret = rc_init_pipelines(device, layout, &cleanup);
-        gradientPipelineLayout = ret.gradientPipelineLayout;
-        gradientPipeline = ret.gradientPipeline;
+        InitPipelines ret = rc_init_compute_pipelines(device, layout, &cleanup);
+        gradientPipelineLayout = ret.pipelineLayout;
+        gradientPipeline = ret.pipeline;
+    }
+    {
+        InitPipelines ret = rc_init_graphics_pipelines(device, drawImageFormat, &cleanup);
+        trianglePipelineLayout = ret.pipelineLayout;
+        trianglePipeline = ret.pipeline;
     }
     {
         DrawParams params = {
@@ -649,9 +799,12 @@ int main() {
                 params.swapchainExtent = size;
                 params.drawImageExtent = size;
                 params.drawImage = drawImage;
+                params.drawImageView = drawImageView;
                 params.drawImageDescriptorSet = set;
                 params.gradientPipeline = gradientPipeline;
                 params.gradientPipelineLayout = gradientPipelineLayout;
+                params.trianglePipeline = trianglePipeline;
+                params.trianglePipelineLayout = trianglePipelineLayout;
                 rc_draw(params);
             }
         }
