@@ -812,3 +812,36 @@ int main() {
 
     StaticCache_clean_up(&cleanup);
 }
+
+/*
+ * Next plan. I want to make a movable square with PVM. Then I want it textured. Then I want the textures to be font text.
+ * I was debating on how far to go with optimization here. What I want is something that will work for simple 2D projects.
+ * I think that going lowest possible effort will still work for simple 2D projects, and it would be nice to be proven wrong
+ * on that if that ends up being the case. This means that I will construct this exactly like I've constructed previous projects
+ * in OpenGL. Basically, one pipeline per rendering mode, rerun the pipeline per square. So basically:
+ * rc_transition_image(... LAYOUT_GENERAL)
+ * for each square (including textured squares)
+ *   vkBeginRendering()
+ *   ...
+ *   vkEndRendering()
+ * rc_transition_image(... TRANSFER_DST_OPTIMAL)
+ *
+ * ok time to do research because I am wondering if we can do a bit better
+ * rc_transition_image(... LAYOUT_GENERAL)
+ * vkCmdBeginRendering()
+ * vkCmdBindPipeline()
+ * vk something scissor
+ * vk something viewport
+ * for each square (including textured squares)
+ *   -- somehow change push constants
+ *   vkCmdDraw
+ * vkEndRendering()
+ * rc_transition_image(... TRANSFER_DST_OPTIMAL)
+ *
+ * so how to do push constants
+ * looks like there is a vkCmdPushConstants
+ * ez enough
+ * we also need something to change the texture probably with another vkCmd
+ * and hopefully it doesn't involve a different descriptor set for every texture? else actually we need
+ * to change that with a vkCmd
+ */
