@@ -8,4 +8,6 @@ void init_exceptions(bool threaded);
 void exception_msg(const char* message);
 void exception();
 
+void do_backtrace(bool fatal);
+
 #endif

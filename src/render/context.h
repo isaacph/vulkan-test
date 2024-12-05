@@ -152,4 +152,40 @@ VkImageViewCreateInfo rc_imageview_create_info(VkFormat format, VkImage image, V
 VkImageCreateInfo rc_image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
 void rc_copy_image_to_image(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
 
+
+// memory allocation API
+typedef struct Allocations {
+    VkDeviceMemory allocation[VK_MAX_MEMORY_TYPES];
+    VkDeviceSize allocationOffset[VK_MAX_MEMORY_TYPES];
+    VkDeviceMemory* toDeallocate; // ptr to array of length VK_MAX_MEMORY_TYPES. Make sure to add all allocations to this array too for cleanup
+} Allocations;
+typedef struct AllocationsCleanUp {
+    VkDevice device;
+    VkDeviceMemory* toDeallocate; // ptr to array of length VK_MAX_MEMORY_TYPES
+} AllocationsCleanup;
+typedef struct Allocation {
+    VkDeviceMemory memory;
+    VkDeviceSize address;
+    uint32_t memoryTypeIndex;
+    VkDeviceSize size;
+    uint32_t flags;
+} Allocation;
+
+void cleanup_allocations(void* user_ptr, sc_t id);
+// Usage:
+// alloc = rc_allocate_memory(physicalDevice, device, allocations, requirements);
+// check(vkBindImageMemory(device, drawImage, alloc.memory, alloc.address));
+//
+// requiredFlags is specifically required for the first or else we signal.
+// After that it's a list of preferences, with the first preference having highest precedence. requiredFlagsLevelsCount must be >= 1
+Allocation rc_allocate_memory(VkPhysicalDevice physicalDevice, VkDevice device, Allocations* allocations, VkMemoryRequirements requirements,
+        uint32_t* requiredFlagsLevels, int requiredFlagsLevelsCount);
+
+// In the case that we want to immediately deallocate the most recently allocated memory block, we can use this function
+// Usage:
+// alloc = rc_allocate_memory(physicalDevice, device, allocations, requirements);
+// ... do stuff but don't allocate more memory
+// rc_deallocate_temp_memory(allocations, alloc);
+void rc_deallocate_temp_memory(Allocations* allocations, Allocation allocation);
+
 #endif // RENDER_CONTEXT_H_INCLUDED 

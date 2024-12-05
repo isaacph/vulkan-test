@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// #define DEBUG_ALLOCATIONS
+
 // checks a malloc pointer and returns it if it's not NULL. helper function
 // seg faults and prints stack trace if it fails
 void* checkMalloc(void* ptr);

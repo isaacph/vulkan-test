@@ -152,6 +152,7 @@ add_library(Main STATIC
     src/util/uuid.c
     src/winmain.c
     src/render/shader.c
+    src/render/memory.c
     )
 add_dependencies(Main Shaders)
 target_include_directories(Main PUBLIC src)

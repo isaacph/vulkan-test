@@ -7,47 +7,94 @@
 #include <math.h>
 #include "shaders_generated.h"
 
-typedef struct AllocationCleanup {
+typedef struct RcImmediateConstructs {
+    VkCommandPool commandPool;
+    VkCommandBuffer commandBuffer;
+    VkFence fence;
+} RcImmediateConstructs;
+typedef struct CleanupRcImmediate {
     VkDevice device;
-    VkDeviceMemory allocation;
-} AllocationCleanup;
-void cleanup_allocation(void* user_ptr, sc_t id) {
-    AllocationCleanup* ptr = (AllocationCleanup*) user_ptr;
-    vkFreeMemory(ptr->device, ptr->allocation, NULL);
-    free(ptr);
+    RcImmediateConstructs constructs;
+} CleanupRcImmediate;
+static void cleanup_immediate(void* user_ptr, sc_t id) {
+    CleanupRcImmediate* ptr = (CleanupRcImmediate*) user_ptr;
+    vkDestroyFence(ptr->device, ptr->constructs.fence, NULL);
+    vkFreeCommandBuffers(ptr->device, ptr->constructs.commandPool, 1, &ptr->constructs.commandBuffer);
+    vkDestroyCommandPool(ptr->device, ptr->constructs.commandPool, NULL);
 }
+RcImmediateConstructs rc_init_immediate(VkDevice device, uint32_t graphicsQueueFamily, StaticCache* cleanup) {
+    VkCommandPool immediateCommandPool = VK_NULL_HANDLE;
+    VkCommandBuffer immediateCommandBuffer = VK_NULL_HANDLE;
+    VkFence immediateFence = VK_NULL_HANDLE;
 
-// I see this as something we can build out little by little.
-// 1. One allocation per memory type, with reasonable size for allocation. No partial deallocation.
-// 2. Multiple allocations per memory type, with reasonable size for each allocation. No partial deallocation.
-// 3. Multiple allocations. Simple linear search allocation + simple deallocation tracking.
-// 4. Multiple allocations. At this point we need a more advanced strategy for choosing allocation position. Possibly can fragment based on
-//    how frequently we need to reallocate some specific memory allocation. Longer-term, larger allocations can get a space, and shorter-term
-//    small allocations can get another space which uses a basic allocation strategy. Possibly could design to over-deallocate so that
-//    frequent allocation is as stream-lined as possible for these smaller or shorter-term allocations. Could implement tracking of performance
-//    too for specific applications so that we can make informed decisions on more complex designs.
-typedef struct Allocations {
-    VkDeviceMemory allocation[VK_MAX_MEMORY_TYPES];
-    VkDeviceSize allocationOffset[VK_MAX_MEMORY_TYPES];
-    VkDeviceMemory* toDeallocate; // ptr to array of length VK_MAX_MEMORY_TYPES. Make sure to add all allocations to this array too for cleanup
-} Allocations;
-typedef struct AllocationsCleanUp {
-    VkDevice device;
-    VkDeviceMemory* toDeallocate; // ptr to array of length VK_MAX_MEMORY_TYPES
-} AllocationsCleanup;
-// Another consideration is handling the lifetime of this thing. Every other Vulkan resource we can just assume we can allocate
-// and deallocate like it's a stack. But I think this one works a bit differently. There are other Vulkan resources depending on this
-// structure, so we need to make sure to deallocate after all of them deallocate. Is there anything that needs to be deallocated before
-// this one though? Probably the device + instance at least. Going off that just making a universal memory deallocation to happen
-// when device is destroyed
-void cleanup_allocations(void* user_ptr, sc_t id) {
-    AllocationsCleanup* ptr = (AllocationsCleanup*) user_ptr;
-    for (int i = 0; i < VK_MAX_MEMORY_TYPES; ++i) {
-        if (ptr->toDeallocate[i] != VK_NULL_HANDLE) {
-            vkFreeMemory(ptr->device, ptr->toDeallocate[i], NULL);
-        }
-    }
-    free(ptr);
+    VkCommandPoolCreateInfo commandPoolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .queueFamilyIndex = graphicsQueueFamily,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .pNext = NULL,
+    };
+    check(vkCreateCommandPool(device, &commandPoolCreateInfo, NULL, &immediateCommandPool));
+
+    VkCommandBufferAllocateInfo cmdAllocInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext = NULL,
+        .commandPool = immediateCommandPool,
+        .commandBufferCount = 1,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+    };
+    check(vkAllocateCommandBuffers(device, &cmdAllocInfo, &immediateCommandBuffer));
+
+    VkFenceCreateInfo fenceCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+    };
+    check(vkCreateFence(device, &fenceCreateInfo, NULL, &immediateFence));
+
+    RcImmediateConstructs constructs = {
+        .commandPool = immediateCommandPool,
+        .commandBuffer = immediateCommandBuffer,
+        .fence = immediateFence,
+    };
+    CleanupRcImmediate* cleanupObj = checkMalloc(malloc(sizeof(CleanupRcImmediate)));
+    *cleanupObj = (CleanupRcImmediate) {
+        .device = device,
+        .constructs = constructs,
+    };
+    StaticCache_add(cleanup, cleanup_immediate, cleanupObj);
+
+    return constructs;
+}
+VkCommandBuffer rc_begin_immediate(VkDevice device, VkQueue graphicsQueue, RcImmediateConstructs immediate) {
+    check(vkResetFences(device, 1, &immediate.fence));
+    check(vkResetCommandBuffer(immediate.commandBuffer, 0));
+    VkCommandBuffer cmd = immediate.commandBuffer;
+    VkCommandBufferBeginInfo cmdBeginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = NULL,
+        .pInheritanceInfo = NULL,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    check(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+    return cmd;
+}
+void rc_end_immediate(VkDevice device, VkQueue graphicsQueue, RcImmediateConstructs immediate) {
+    VkCommandBuffer cmd = immediate.commandBuffer;
+    check(vkEndCommandBuffer(cmd));
+    VkCommandBufferSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        .pNext = NULL,
+        .commandBuffer = cmd,
+        .deviceMask = 0,
+    };
+    VkSubmitInfo2 submit = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+        .pNext = NULL,
+        .commandBufferInfoCount = 1,
+        .pCommandBufferInfos = &submitInfo,
+    };
+    check(vkQueueSubmit2(graphicsQueue, 1, &submit, immediate.fence));
+    check(vkWaitForFences(device, 1, &immediate.fence, true, 1000000000));
 }
 
 typedef struct SecondSwapchainImageCleanup {
@@ -55,7 +102,7 @@ typedef struct SecondSwapchainImageCleanup {
     VkImage image;
     VkImageView imageView;
 } SecondSwapchainImageCleanup;
-void cleanup_second_swapchain_image(void* user_ptr, sc_t id) {
+static void cleanup_second_swapchain_image(void* user_ptr, sc_t id) {
     SecondSwapchainImageCleanup* ptr = (SecondSwapchainImageCleanup*) user_ptr;
     vkDestroyImageView(ptr->device, ptr->imageView, NULL);
     vkDestroyImage(ptr->device, ptr->image, NULL);
@@ -67,7 +114,7 @@ typedef struct SecondSwapchainImageInit {
     VkImage drawImage; // current version of this image, or VK_NULL_HANDLE
     VkImageView drawImageView; // ignored if image is VK_NULL_HANDLE
     SecondSwapchainImageCleanup* drawImageCleanup; // current cleanup handle, or NULL
-    uint32_t drawImageChosenMemoryType; // ignored if image is VK_NULL_HANDLE
+    VkDeviceMemory drawImageMemory; // ignored if image is VK_NULL_HANDLE
     VkDeviceSize drawImageMemoryPosition; // ignored if image is VK_NULL_HANDLE
     VkExtent2D windowSize;
     Allocations* allocations;
@@ -78,13 +125,13 @@ typedef struct SecondSwapchainImage {
     VkImageView drawImageView;
     VkFormat drawImageFormat;
     SecondSwapchainImageCleanup* drawImageCleanup; // new version of cleanup handle
-    uint32_t drawImageChosenMemoryType;
+    VkDeviceMemory drawImageMemory;
     VkDeviceSize drawImageMemoryPosition;
 } SecondSwapchainImage;
 SecondSwapchainImage rc_init_second_swapchain_image(SecondSwapchainImageInit params) {
     bool newImage = params.drawImage == VK_NULL_HANDLE;
-    uint32_t drawImageChosenMemoryType = params.drawImageChosenMemoryType;
     VkDeviceSize drawImageMemoryPosition = params.drawImageMemoryPosition;
+    VkDeviceMemory drawImageMemory = params.drawImageMemory;
 
     VkImageUsageFlags drawImageUsages = 0;
     drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -113,55 +160,25 @@ SecondSwapchainImage rc_init_second_swapchain_image(SecondSwapchainImageInit par
     VkMemoryRequirements imageMemoryRequirements = { 0 };
     vkGetImageMemoryRequirements(params.device, drawImage, &imageMemoryRequirements);
 
-    const VkDeviceSize maxPossibleSize = 131 * 1024 * 1024;
-    // look through memoryTypeBits for a memory type that has sufficient memory and is DEVICE_LOCAL
-    // then allocate VkDeviceMemory from that memory type
-    VkDeviceSize requiredSize = 256 * 1024 * 1024;
-    uint32_t chosenMemoryTypeIndex = UINT32_MAX;
-    VkPhysicalDeviceMemoryProperties properties = { 0 };
-    vkGetPhysicalDeviceMemoryProperties(params.physicalDevice, &properties);
-    for (int i = 0; i < properties.memoryTypeCount; ++i) {
-        if ((imageMemoryRequirements.memoryTypeBits & (1 << i)) != 0) {
-            uint32_t flags = properties.memoryTypes[i].propertyFlags;
-            if ((VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT & flags) != 0) {
-                uint32_t heapIndex = properties.memoryTypes[i].heapIndex;
-                VkDeviceSize heapSize = properties.memoryHeaps[heapIndex].size; 
-                if (heapSize >= requiredSize) {
-                    chosenMemoryTypeIndex = i;
-                    printf("chosen type #%d heapIndex: %u, flags: %x\n", i,
-                            properties.memoryTypes[i].heapIndex, properties.memoryTypes[i].propertyFlags);
-                    break;
-                }
-            }
-        }
-    }
-    assert(chosenMemoryTypeIndex != UINT32_MAX);
     if (newImage) {
-        VkMemoryAllocateInfo allocateInfo = {
-            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            .pNext = NULL,
-            .allocationSize = requiredSize,
-            .memoryTypeIndex = chosenMemoryTypeIndex,
+        const VkDeviceSize maxPossibleSize = 131 * 1024 * 1024;
+        imageMemoryRequirements.size = max(imageMemoryRequirements.size, maxPossibleSize);
+        uint32_t requiredFlags[] = {
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         };
-        VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
-        check(vkAllocateMemory(params.device, &allocateInfo, NULL, &deviceMemory));
-        check(vkBindImageMemory(params.device, drawImage, deviceMemory, 0));
-        // normally we'd check if we already had an allocation before allocating here, but for our purposes we know we are
-        // the first allocation
-        params.allocations->allocation[chosenMemoryTypeIndex] = deviceMemory;
-        params.allocations->allocationOffset[chosenMemoryTypeIndex] = maxPossibleSize;
-        params.allocations->toDeallocate[chosenMemoryTypeIndex] = deviceMemory; // sets it up for cleanup
-        drawImageChosenMemoryType = chosenMemoryTypeIndex;
-        drawImageMemoryPosition = 0;
+        Allocation allocation = rc_allocate_memory(
+                params.physicalDevice, params.device, params.allocations, imageMemoryRequirements,
+                requiredFlags, sizeof(requiredFlags) / sizeof(uint32_t)
+        );
+        drawImageMemory = allocation.memory;
+        drawImageMemoryPosition = allocation.address;
     } else {
-        assert(chosenMemoryTypeIndex == drawImageChosenMemoryType);
         // how do we reallocate if the size could be different?????
         // best idea right now: think of biggest possible screen size and just reserve that much lol
         // lmfao if we take 4x the biggest screen size we get 7680 * 4320 * 4 = 132710400 ~= 132 MB
         // lets just give a whole memory block or something?
-        VkDeviceMemory deviceMemory = params.allocations->allocation[chosenMemoryTypeIndex];
-        assert(deviceMemory != VK_NULL_HANDLE);
-        check(vkBindImageMemory(params.device, drawImage, deviceMemory, 0));
+        assert(drawImageMemory != VK_NULL_HANDLE);
+        check(vkBindImageMemory(params.device, drawImage, drawImageMemory, 0));
     }
 
     if (newImage) {
@@ -180,10 +197,143 @@ SecondSwapchainImage rc_init_second_swapchain_image(SecondSwapchainImageInit par
         .drawImage = drawImage,
         .drawImageView = drawImageView,
         .drawImageCleanup = drawImageCleanup,
-        .drawImageChosenMemoryType = drawImageChosenMemoryType,
+        .drawImageMemory = drawImageMemory,
         .drawImageMemoryPosition = drawImageMemoryPosition,
         .drawImageFormat = imageFormat,
     };
+}
+
+typedef struct RcCreateImageParameters {
+    VkDevice device;
+    VkPhysicalDevice physicalDevice;
+    Allocations* allocations;
+    VkExtent2D size;
+    VkFormat format;
+    VkImageAspectFlags imageAspectFlags;
+} RcCreateImageParameters;
+typedef struct RcImage {
+    VkImage image;
+    VkImageView view;
+    VkFormat format;
+    VkExtent3D size;
+    sc_t cleanupHandle;
+} RcImage;
+typedef struct CleanupRcImage {
+    VkDevice device;
+    VkImage image;
+    VkImageView imageView;
+} CleanupRcImage;
+static void cleanup_rc_image(void* user_ptr, sc_t id) {
+    CleanupRcImage* ptr = (CleanupRcImage*) user_ptr;
+    vkDestroyImageView(ptr->device, ptr->imageView, NULL);
+    vkDestroyImage(ptr->device, ptr->image, NULL);
+    free(ptr);
+}
+RcImage rc_create_image(RcCreateImageParameters params, StaticCache* cleanup) {
+    VkImageUsageFlags drawImageUsages = 0;
+    drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
+    drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    VkExtent3D extent = {
+        .width = params.size.width,
+        .height = params.size.height,
+        .depth = 1,
+    };
+    VkImageCreateInfo createInfo = rc_image_create_info(params.format, drawImageUsages, extent);
+    CleanupRcImage* drawImageCleanup = checkMalloc(malloc(sizeof(CleanupRcImage)));
+    drawImageCleanup->device = params.device;
+
+    VkImage drawImage = VK_NULL_HANDLE;
+    check(vkCreateImage(params.device, &createInfo, NULL, &drawImage));
+    drawImageCleanup->image = drawImage;
+
+    VkMemoryRequirements imageMemoryRequirements = { 0 };
+    vkGetImageMemoryRequirements(params.device, drawImage, &imageMemoryRequirements);
+    uint32_t requiredFlags[] = {
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    };
+    Allocation allocation = rc_allocate_memory(params.physicalDevice, params.device, params.allocations, imageMemoryRequirements,
+            requiredFlags, sizeof(requiredFlags) / sizeof(uint32_t));
+    // todo add cleanup
+
+    // maybe use VK_IMAGE_ASPECT_COLOR_BIT
+    VkImageViewCreateInfo imageViewInfo = rc_imageview_create_info(params.format, drawImage, params.imageAspectFlags);
+    VkImageView drawImageView = VK_NULL_HANDLE;
+    check(vkCreateImageView(params.device, &imageViewInfo, NULL, &drawImageView));
+    drawImageCleanup->imageView = drawImageView;
+
+    sc_t cleanupHandle = StaticCache_add(cleanup, cleanup_rc_image, (void*) drawImageCleanup);
+
+    return (RcImage) {
+        .image = drawImage,
+        .view = drawImageView,
+        .cleanupHandle = cleanupHandle,
+        .format = params.format,
+        .size = extent,
+    };
+}
+void rc_write_image(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue graphicsQueue, Allocations* allocations,
+        RcImmediateConstructs immediate, RcImage image, void* data, size_t length) {
+    // allocate temp buffer
+    VkBufferCreateInfo bufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = NULL,
+        .size = length,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    };
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VkMemoryRequirements requirements = { 0 };
+    check(vkCreateBuffer(device, &bufferInfo, NULL, &buffer));
+    vkGetBufferMemoryRequirements(device, buffer, &requirements);
+    uint32_t flagPreferredLevels[] = {
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
+    };
+    Allocation allocation = rc_allocate_memory(physicalDevice, device, allocations, requirements,
+            flagPreferredLevels, sizeof(flagPreferredLevels) / sizeof(uint32_t));
+    check(vkBindBufferMemory(device, buffer, allocation.memory, allocation.address));
+
+    // write data to buffer
+    void* mappedMemory = NULL;
+    printf("memory: %p, address: %lld, size: %lld\n", allocation.memory, allocation.address, allocation.size);
+    check(vkMapMemory(device, allocation.memory, allocation.address, allocation.size, 0, &mappedMemory));
+    memcpy(mappedMemory, data, length);
+    if ((allocation.flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) != 0) {
+        VkMappedMemoryRange range = {
+            .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+            .pNext = NULL,
+            .memory = allocation.memory,
+            .offset = allocation.address,
+            .size = allocation.size,
+        };
+        check(vkFlushMappedMemoryRanges(device, 1, &range));
+    }
+
+    // write buffer to image
+    VkCommandBuffer cmd = rc_begin_immediate(device, graphicsQueue, immediate);
+    rc_transition_image(cmd, image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    VkBufferImageCopy copyRegion = {
+        .bufferOffset = 0,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        },
+        .imageExtent = image.size,
+    };
+    vkCmdCopyBufferToImage(cmd, buffer, image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+    rc_transition_image(cmd, image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    rc_end_immediate(device, graphicsQueue, immediate);
+
+    // remove buffer
+    rc_deallocate_temp_memory(allocations, allocation);
+    vkDestroyBuffer(device, buffer, NULL);
 }
 
 typedef struct DescriptorPoolsCleanup {
@@ -192,7 +342,7 @@ typedef struct DescriptorPoolsCleanup {
     VkDescriptorSetLayout layout;
     VkDescriptorSet set;
 } DescriptorPoolsCleanup;
-void cleanup_descriptor_pools(void* user_ptr, sc_t id) {
+static void cleanup_descriptor_pools(void* user_ptr, sc_t id) {
     DescriptorPoolsCleanup* cleanup = (DescriptorPoolsCleanup*) user_ptr;
     vkFreeDescriptorSets(cleanup->device, cleanup->pool, 1, &cleanup->set);
     vkDestroyDescriptorSetLayout(cleanup->device, cleanup->layout, NULL);
@@ -499,11 +649,13 @@ int main() {
     FrameData frames[FRAME_OVERLAP];
     sc_t swapchainCleanupHandle = SC_ID_NONE;
 
+    RcImmediateConstructs immediate;
+
     VkImage drawImage = VK_NULL_HANDLE; // the image we draw directly to, copied to swapchain
     VkImageView drawImageView = VK_NULL_HANDLE;
     VkFormat drawImageFormat = 0;
     SecondSwapchainImageCleanup* drawImageCleanup = NULL;
-    uint32_t drawImageChosenMemoryType = 0; // we need to be able to reallocate this memory on resize so record its properties here
+    VkDeviceMemory drawImageMemory = VK_NULL_HANDLE; // we need to be able to reallocate this memory on resize so record its properties here
     VkDeviceSize drawImageMemoryPosition = 0;
 
     Allocations allocations = { 0 };
@@ -521,6 +673,8 @@ int main() {
     VkPipeline gradientPipeline = VK_NULL_HANDLE;
     VkPipelineLayout trianglePipelineLayout = VK_NULL_HANDLE;
     VkPipeline trianglePipeline = VK_NULL_HANDLE;
+
+    RcImage texture = { 0 };
 
     {
         PFN_vkGetInstanceProcAddr proc_addr = rc_proc_addr();
@@ -566,6 +720,11 @@ int main() {
         };
         StaticCache_add(&cleanup, cleanup_allocations, allocCleanup);
     }
+    // init "immediate submit" constructs
+    {
+        immediate = rc_init_immediate(device, graphicsQueueFamily, &cleanup);
+    }
+    // init swapchain
     {
         InitSwapchainParams params = {
             .extent = size,
@@ -598,71 +757,6 @@ int main() {
             frames[i] = ret.frames[i];
         }
     }
-    // init device memory allocation
-    // {
-    //     // is it possible to allocate some of each memory requirement first?
-    //     // so it seems this simple:
-    //     // I want to be able to allocate memory in advance.
-    //     // The implementation wants to require some specific sets of memory types that we can even put images in though
-    //     // the options are to either find out what types those are in advance by making sets of image types that we expect to use
-    //     // that we can use to anticipate required types so that the allocations are already there once we need them
-    //     // or we can just wait on allocation until a specific type is required. then we would do the allocation
-    //     //
-    //     // waiting on the allocation until a type is required is better because 1. if the types change over program lifetime no
-    //     // extra handling might be needed
-    //     //
-    //     // the question is if that 1. is a valid reason. checking the documentation for "can vkGetImageMemoryRequirements2 return
-    //     // different results with the same inputs"
-    //     //
-    //     //
-    //     // so based on the docs, as long as I'm not using features that are too esoteric, types will not change over program lifetime
-    //     //
-    //     // so why might i want to wait on allocation until a type is required, if we assume we can figure that out at the start?
-    //     // well not waiting means I have to know in advance what image formats I'm going to need, and allocate for each of those.
-    //     // (and buffer formats). keeping track of this sounds like a lot of work I'm trying to minimize until absolutely necessary
-    //     //
-    //     // what's bad about waiting? well if I wait then I have to basically have an array of an allocation for each memoryType
-    //     // it may even need to be a 2d array if we want long term scalability
-    //     // it means i have to do some framework writing here right away.
-    //     // normally the point of frameworks is to align to changing programmer side requirements. we find this to be overkill a lot of the time,
-    //     // hence we are trying this type of coding we're doing here where we are trying to minimize frameworking
-    //     // but. now we have to align to changing runtime device requirements.
-    //     //
-    //     // can we just go implement a really naive solution for now and make it better later?
-
-    //     // look through memoryTypeBits for a memory type that has sufficient memory and is DEVICE_LOCAL
-    //     // then allocate VkDeviceMemory from that memory type
-    //     VkDeviceSize requiredSize = 256 * 1024 * 1024;
-    //     uint32_t chosenMemoryTypeIndex = UINT32_MAX;
-    //     VkPhysicalDeviceMemoryProperties properties = { 0 };
-    //     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &properties);
-    //     for (int i = 0; i < properties.memoryTypeCount; ++i) {
-    //         if ((imageMemoryRequirements.memoryTypeBits & (1 << i)) != 0) {
-    //             uint32_t flags = properties.memoryTypes[i].propertyFlags;
-    //             if ((VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT & flags) != 0) {
-    //                 uint32_t heapIndex = properties.memoryTypes[i].heapIndex;
-    //                 VkDeviceSize heapSize = properties.memoryHeaps[heapIndex].size; 
-    //                 if (heapSize >= requiredSize) {
-    //                     chosenMemoryTypeIndex = i;
-    //                     printf("chosen type #%d heapIndex: %u, flags: %x\n", i,
-    //                             properties.memoryTypes[i].heapIndex, properties.memoryTypes[i].propertyFlags);
-    //                     break;
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     assert(chosenMemoryTypeIndex != UINT32_MAX);
-    //     VkMemoryAllocateInfo allocateInfo = {
-    //         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-    //         .pNext = NULL,
-    //         .allocationSize = requiredSize,
-    //         .memoryTypeIndex = chosenMemoryTypeIndex,
-    //     };
-    //     check(vkAllocateMemory(device, &allocateInfo, NULL, &allocation));
-    //     check(vkBindImageMemory(device, image, allocation, 0));
-    //     cleanupObject->memory = allocation;
-    // }
-    // init descriptor set
     // init the image that we draw to
     {
         SecondSwapchainImageInit params = {
@@ -671,7 +765,7 @@ int main() {
             .drawImage = VK_NULL_HANDLE,
             .drawImageView = VK_NULL_HANDLE,
             .drawImageCleanup = NULL,
-            .drawImageChosenMemoryType = 0,
+            .drawImageMemory = 0,
             .drawImageMemoryPosition = 0,
             .windowSize = size,
             .allocations = &allocations,
@@ -682,9 +776,10 @@ int main() {
         drawImageView = ret.drawImageView;
         drawImageFormat = ret.drawImageFormat;
         drawImageCleanup = ret.drawImageCleanup;
-        drawImageChosenMemoryType = ret.drawImageChosenMemoryType;
+        drawImageMemory = ret.drawImageMemory;
         drawImageMemoryPosition = ret.drawImageMemoryPosition;
     }
+    // init descriptor set
     {
         InitDescriptors ret = rc_init_descriptors(device, drawImageView, &cleanup);
         pool = ret.pool;
@@ -700,6 +795,26 @@ int main() {
         InitPipelines ret = rc_init_graphics_pipelines(device, drawImageFormat, &cleanup);
         trianglePipelineLayout = ret.pipelineLayout;
         trianglePipeline = ret.pipeline;
+    }
+    {
+        RcCreateImageParameters params = {
+            .device = device,
+            .physicalDevice = physicalDevice,
+            .imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
+            .format = VK_FORMAT_R8_UINT,
+            .size = (VkExtent2D) {
+                .width = 2,
+                .height = 2,
+            },
+            .allocations = &allocations,
+        };
+        uint64_t data[] = {
+            0xF00FEBFF, 0x000000FF,
+            0x000000FF, 0xE534EBFF,
+        };
+        texture = rc_create_image(params, &cleanup);
+        rc_write_image(physicalDevice, device, graphicsQueue, &allocations,
+                immediate, texture, data, 4);
     }
     {
         DrawParams params = {
@@ -760,7 +875,7 @@ int main() {
                             .drawImage = drawImage,
                             .drawImageView = drawImageView,
                             .drawImageCleanup = drawImageCleanup,
-                            .drawImageChosenMemoryType = drawImageChosenMemoryType,
+                            .drawImageMemory = drawImageMemory,
                             .drawImageMemoryPosition = drawImageMemoryPosition,
                             .windowSize = size,
                             .allocations = &allocations,
@@ -770,7 +885,7 @@ int main() {
                         drawImage = ret.drawImage;
                         drawImageView = ret.drawImageView;
                         drawImageCleanup = ret.drawImageCleanup;
-                        drawImageChosenMemoryType = ret.drawImageChosenMemoryType;
+                        drawImageMemory = ret.drawImageMemory;
                         drawImageMemoryPosition = ret.drawImageMemoryPosition;
                     }
 

@@ -102,5 +102,13 @@ void init_device_functions(VkDevice device) {
     check(vkCmdEndRendering = (PFN_vkCmdEndRendering)load(device, "vkCmdEndRendering"));
     check(vkCmdSetViewport = (PFN_vkCmdSetViewport)load(device, "vkCmdSetViewport"));
     check(vkCmdSetScissor = (PFN_vkCmdSetScissor)load(device, "vkCmdSetScissor"));
+    check(vkCreateBuffer = (PFN_vkCreateBuffer)load(device, "vkCreateBuffer"));
+    check(vkDestroyBuffer = (PFN_vkDestroyBuffer)load(device, "vkDestroyBuffer"));
+    check(vkGetBufferMemoryRequirements = (PFN_vkGetBufferMemoryRequirements)load(device, "vkGetBufferMemoryRequirements"));
+    check(vkBindBufferMemory = (PFN_vkBindBufferMemory)load(device, "vkBindBufferMemory"));
+    check(vkMapMemory = (PFN_vkMapMemory)load(device, "vkMapMemory"));
+    check(vkCmdCopyBufferToImage = (PFN_vkCmdCopyBufferToImage)load(device, "vkCmdCopyBufferToImage"));
+    check(vkFreeCommandBuffers = (PFN_vkFreeCommandBuffers)load(device, "vkFreeCommandBuffers"));
+    check(vkFlushMappedMemoryRanges = (PFN_vkFlushMappedMemoryRanges)load(device, "vkFlushMappedMemoryRanges"));
 }
 

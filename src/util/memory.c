@@ -30,6 +30,10 @@ sc_t StaticCache_add(StaticCache* cache, CleanUpCallback callback, void* user_pt
     assert(cache->index >= 0);
     assert(cache->index < cache->size);
 
+#ifdef DEBUG_ALLOCATIONS
+    printf("Cache entry %d. Backtrace:\n", cache->index);
+    do_backtrace(false);
+#endif
     cache->entries[cache->index] = (CleanUpEntry) {
         .callback = callback,
         .user_ptr = user_ptr,
@@ -74,6 +78,9 @@ void StaticCache_clean_up(StaticCache* cache) {
     assert(cache->index <= cache->size);
 
     for (int i = cache->index - 1; i >= 0; --i) {
+#ifdef DEBUG_ALLOCATIONS
+        printf("cleaning %d / %d\n", i, cache->index);
+#endif
         CleanUpEntry entry = cache->entries[i];
         entry.callback(entry.user_ptr, (sc_t) i);
     }

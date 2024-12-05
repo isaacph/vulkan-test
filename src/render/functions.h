@@ -137,6 +137,13 @@ EXTERN PFN_vkCmdBeginRendering vkCmdBeginRendering INIT;
 EXTERN PFN_vkCmdEndRendering vkCmdEndRendering INIT;
 EXTERN PFN_vkCmdSetViewport vkCmdSetViewport INIT;
 EXTERN PFN_vkCmdSetScissor vkCmdSetScissor INIT;
+EXTERN PFN_vkCreateBuffer vkCreateBuffer INIT;
+EXTERN PFN_vkDestroyBuffer vkDestroyBuffer INIT;
+EXTERN PFN_vkGetBufferMemoryRequirements vkGetBufferMemoryRequirements INIT;
+EXTERN PFN_vkBindBufferMemory vkBindBufferMemory INIT;
+EXTERN PFN_vkMapMemory vkMapMemory INIT;
+EXTERN PFN_vkCmdCopyBufferToImage vkCmdCopyBufferToImage INIT;
+EXTERN PFN_vkFlushMappedMemoryRanges vkFlushMappedMemoryRanges INIT;
 
 #undef EXTERN
 #undef INIT
