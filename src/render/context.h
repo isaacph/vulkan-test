@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include "win32.h"
 #include "wayland.h"
+#include <limits.h>
 
 typedef struct FrameData {
     VkCommandPool commandPool;

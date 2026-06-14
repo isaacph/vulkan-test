@@ -10,19 +10,23 @@
 
 const char* const ENABLE_EXTENSIONS[] = {
     "VK_KHR_surface", // rendering to monitors
-    "VK_KHR_win32_surface", // TODO: make this array change based on platform
+#if defined(_WIN32)
+    "VK_KHR_win32_surface",
+#elif defined(__linux__)
+    "VK_KHR_wayland_surface",
+#endif
     "VK_KHR_get_surface_capabilities2", // it doesn't seem to care whether we enable this but oh well
     "VK_EXT_swapchain_colorspace",
     "VK_EXT_debug_utils",
 };
-const size_t ENABLE_EXTENSIONS_COUNT = 5;
+const size_t ENABLE_EXTENSIONS_COUNT = sizeof(ENABLE_EXTENSIONS) / sizeof(ENABLE_EXTENSIONS[0]);
 
 // uses VK_MAX_EXTENSION_NAME_SIZE according to:
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkLayerProperties.html
 const char* const ENABLE_LAYERS[] = {
     "VK_LAYER_KHRONOS_validation",
 };
-const size_t ENABLE_LAYERS_COUNT = 1;
+const size_t ENABLE_LAYERS_COUNT = sizeof(ENABLE_LAYERS) / sizeof(ENABLE_LAYERS[0]);
 
 
 static void cleanup_instance(void* user_ptr, sc_t id) {

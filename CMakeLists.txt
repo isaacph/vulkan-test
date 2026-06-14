@@ -164,11 +164,12 @@ if (WIN32)
     target_link_libraries(Main dbghelp legacy_stdio_definitions Rpcrt4)
 endif (WIN32)
 if (UNIX)
-    target_link_libraries(Main backtrace wayland-client WaylandProtocol sodium)
+    target_link_libraries(Main backtrace wayland-client WaylandProtocol sodium uuid m)
     add_dependencies(Main WaylandProtocol)
 endif (UNIX)
 
 add_executable(Game src/main.c)
+add_executable(Test src/test.c)
 target_link_libraries(Game Main)
 # target_compile_definitions(VulkanTest PRIVATE UNICODE _UNICODE)
 # target_include_directories(VulkanTest PRIVATE src)
@@ -183,7 +184,7 @@ target_link_libraries(Game Main)
 #     target_compile_options(VulkanTest PRIVATE -Wall -Wextra -Wpedantic -Werror)
 # endif()
 
-install(TARGETS Game)
+install(TARGETS Game Test)
  
 # # use this to print targets wherever you paste it
 # function(print_all_targets DIR)
@@ -202,3 +203,4 @@ install(TARGETS Game)
 # message("ALL TARGETS BELOW")
 # print_all_targets(.)
 
+# to build debug, pass -DCMAKE_BUILD_TYPE=Debug

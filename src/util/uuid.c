@@ -20,7 +20,7 @@ uuid_alias generate_uuid() {
     return uuid_conv;
 }
 #else
-#error TODO: implement UUID gen on linux
+#include "uuid.h"
 #endif
 
 // appends 4 characters to out using 2 bytes of input
@@ -47,3 +47,11 @@ int uuid_to_string(uuid_alias uuid, char* out, int out_len) {
     }
     return out_index;
 }
+
+#if defined(__linux__)
+uuid_alias generate_uuid() {
+    uuid_alias uuid;
+    uuid_generate(uuid.data);
+    return uuid;
+}
+#endif

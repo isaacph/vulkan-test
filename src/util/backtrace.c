@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "backtrace.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -19,6 +18,7 @@
 
 void do_backtrace(bool fatal);
 void force_interrupt();
+void init_exceptions(bool threaded);
 
 static const char* signal_name(int s) {
     switch(s) {
@@ -47,52 +47,38 @@ void force_interrupt() {
 }
 
 #if defined(__linux__)
+#include <execinfo.h>
 
-struct backtrace_state* backtrace_state;
+void do_backtrace(bool fatal) {
+    printf("Doing backtrace\n");
+    void * buffer = NULL;
+    int addresses = backtrace(&buffer, 64);
+    char ** symbols = backtrace_symbols(buffer, addresses);
 
-void exception_backtrace_error_callback(void* data, const char* msg, int errnum) {
-    printf("Error creating backtrace\nErrno: %i\nMsg: %s\n\n", errnum, msg);
+    for (int i = 0; i < addresses; ++i) {
+        char * symbol = symbols[i];
+        printf("%s\n", symbol);
+    }
+
+    free(symbols);
+    if (fatal) {
+        exit(1);
+    }
 }
-
-int exception_backtrace_full_callback(void* data, uintptr_t pc, const char* filename, int lineno, const char* function) {
-    printf("%s:%s:%i at %p\n", filename, function, lineno, (void*) pc);
-    return 0;
-}
-
-void sigAction(int signal, siginfo_t* info, void* ptr) {
-    fprintf(stderr, "Exception: %s (%d)\n", signal_name(signal), signal);
+void sigHandler(int s) {
+    fprintf(stderr, "Exception: %s (%d)\n", signal_name(s), s);
 
     do_backtrace(true);
 }
-
 void init_exceptions(bool threaded) {
-    int signals[] = {
-        SIGABRT,
-        SIGFPE,
-        SIGILL,
-        SIGINT,
-        SIGSEGV,
-        SIGTERM,
-    };
-    for (int i = 0; i < sizeof(signals) / sizeof(signals[0]); ++i) {
-        int signal = signals[i];
-        struct sigaction action = {
-            .sa_handler = NULL,
-            .sa_sigaction = sigAction,
-            .sa_mask = 0,
-            .sa_flags = 0,
-            .sa_restorer = NULL,
-        };
-        sigaction(signal, &action, NULL);
-    }
-    backtrace_state = backtrace_create_state(NULL, false, exception_backtrace_error_callback, NULL);
+    signal(SIGABRT, sigHandler);
+    signal(SIGFPE, sigHandler);
+    signal(SIGILL, sigHandler);
+    signal(SIGINT, sigHandler);
+    signal(SIGSEGV, sigHandler);
+    signal(SIGTERM, sigHandler);
 }
 
-void do_backtrace(bool fatal) {
-    backtrace_full(backtrace_state, 0, exception_backtrace_full_callback, exception_backtrace_error_callback, NULL);
-
-    if (fatal) exit(1);
-}
 #endif
 
 

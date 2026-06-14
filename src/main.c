@@ -1,10 +1,14 @@
 #include "util/backtrace.h"
 #include "util/memory.h"
 #include "render/context.h"
+#include "render/util.h"
+#include "util.h"
 #include <assert.h>
 #include <stdio.h>
 #include <util/backtrace.h>
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 #include "shaders_generated.h"
 
 typedef struct RcImmediateConstructs {
@@ -157,7 +161,7 @@ SecondSwapchainImage rc_init_second_swapchain_image(SecondSwapchainImageInit par
 
     if (newImage) {
         const VkDeviceSize maxPossibleSize = 131 * 1024 * 1024;
-        imageMemoryRequirements.size = max(imageMemoryRequirements.size, maxPossibleSize);
+        imageMemoryRequirements.size = MAX(imageMemoryRequirements.size, maxPossibleSize);
         uint32_t requiredFlags[] = {
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         };
@@ -672,7 +676,7 @@ int main() {
 
     {
         PFN_vkGetInstanceProcAddr proc_addr = rc_proc_addr();
-        InitInstance init = rc_init_instance(proc_addr, false, &cleanup);
+        InitInstance init = rc_init_instance(proc_addr, true, &cleanup);
         instance = init.instance;
         assert(instance != VK_NULL_HANDLE);
     }

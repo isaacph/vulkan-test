@@ -1,9 +1,17 @@
 #include "context.h"
+#include "util/memory.h"
+#include <assert.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
 #ifdef __linux__
 #include "wayland.h"
 #include <dlfcn.h>
 #include <stdio.h>
 #include "../util/backtrace.h"
+#include <wayland-client-core.h>
+#include <wayland-client-protocol.h>
+#include <wayland-client.h>
 
 // this is slightly overwhelming so let's break it down
 // 1. load a DLL and get proc address for linux - complete
@@ -43,6 +51,88 @@ PFN_vkGetInstanceProcAddr rc_proc_addr() {
         exception_msg("Invalid vulkan-1.dll");
     }
     return fp_vkGetInstanceProcAddr;
+}
+
+typedef struct LocalState {
+    struct wl_display *display;
+    struct wl_registry *registry;
+    struct wl_compositor *compositor;
+    struct wl_surface *surface;
+} LocalState;
+static void LocalState_cleanup(void *ptr, sc_t id_ignored) {
+    LocalState* ls = (LocalState*) ptr;
+    free(ls);
+}
+
+static void LocalState_handle_global(void *data, struct wl_registry *wl_registry, uint32_t name, const char *interface, uint32_t version) {
+    LocalState* ls = (LocalState*) data;
+    if (!strcmp(interface, wl_compositor_interface.name)) {
+        ls->compositor = wl_registry_bind(wl_registry, name, &wl_compositor_interface, 4 /* override version to latest at time of writing */);
+        printf("Global added to name %d: %s\n", name, interface);
+    }
+}
+
+static void LocalState_global_remove(void *data, struct wl_registry *wl_registry, uint32_t name) {
+    printf("Global name %d removed\n", name);
+}
+
+static const struct wl_registry_listener registry_listener = {
+    .global = LocalState_handle_global,
+    .global_remove = LocalState_global_remove,
+};
+
+InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
+    LocalState* ls = (LocalState*) calloc(1, sizeof(LocalState));
+    StaticCache_add(cleanup, LocalState_cleanup, (void*) ls);
+    // Connect to the Wayland display named name. If name is NULL, its value
+    // will be replaced with the WAYLAND_DISPLAY environment variable if it is
+    // set, otherwise display "wayland-0" will be used.
+    ls->display = wl_display_connect(NULL);
+    if (ls->display == NULL) {
+        exception_msg("Unable to connect to Wayland");
+    }
+    printf("Wayland connection established\n");
+    ls->registry = wl_display_get_registry(ls->display);
+    if (ls->registry == NULL) {
+        exception_msg("Missing Wayland registry");
+    }
+    wl_registry_add_listener(ls->registry, &registry_listener, (void*) ls);
+    if (wl_display_roundtrip(ls->display) == -1) {
+        printf("Received error code from wl_display_roundtrip\n");
+    }
+    if (ls->compositor == NULL) {
+        exception_msg("Wayland has misbehaved and not supplied a wl_compositor global");
+    }
+    ls->surface = wl_compositor_create_surface(ls->compositor);
+    if (ls->surface == NULL) {
+        exception_msg("Wayland compositor refused to create a surface");
+    }
+    printf("Wayland surface created\n");
+
+    return (InitSurface) {
+        .windowHandle = (WindowHandle) {
+            .display = ls->display,
+            .surface = ls->surface,
+        },
+        .size = (VkExtent2D) {
+            .width = 0,
+            .height = 0,
+        },
+        .surface = NULL,
+    };
+}
+
+WindowUpdate rc_window_update(WindowHandle* windowHandle) {
+    int rc = wl_display_dispatch(windowHandle->display);
+    if (rc == -1) {
+        printf("Failed to dispatch Wayland display. errno = %d\n", errno);
+    }
+    return (WindowUpdate) {
+        .windowClosed = false,
+        .newSize = 0,
+        .resize = false,
+        .shouldDraw = false,
+    };
 }
 
 // InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {

@@ -28,3 +28,10 @@ Trying a Vulkan test with MSVC and Vulkan loader, no other runtime dependencies
 
 https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html
 
+### In progress
+
+- https://wayland-book.com/registry.html - Reading through to make wayland client
+- https://wayland.freedesktop.org/docs/html/apb.html#Client-classwl__display_1a8f85e2c5ec7431cbfd584c3e87350c5a
+- https://wayland.app/protocols/
+- file:///home/isaac/Downloads/sdk-1.4.304.0/windows/vkspec.html#VK_KHR_wayland_surface
+- gdb -ex run ./Game
