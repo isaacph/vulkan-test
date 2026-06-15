@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -30,6 +31,17 @@ static const char* signal_name(int s) {
         case SIGTERM: return "SIGTERM";
         default: return "Unknown signal";
     }
+}
+
+void exception_format(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    printf("Error: ");
+    vfprintf(stderr, format, args);
+    printf("\n");
+    va_end(args);
+
+    force_interrupt();
 }
 
 void exception_msg(const char* message) {

@@ -5,9 +5,10 @@
 #include <wayland-client-protocol.h>
 #include <wayland-client.h>
 
+struct LocalState;
+
 typedef struct WindowHandle {
-    struct wl_display *display;
-    struct wl_surface *surface;
+    struct LocalState *localState;
 } WindowHandle;
 
 #endif

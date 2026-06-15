@@ -6,6 +6,8 @@
 
 void init_exceptions(bool threaded);
 void exception_msg(const char* message);
+void exception_format(const char* format, ...);
+
 void exception();
 
 void do_backtrace(bool fatal);

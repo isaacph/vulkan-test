@@ -164,7 +164,7 @@ if (WIN32)
     target_link_libraries(Main dbghelp legacy_stdio_definitions Rpcrt4)
 endif (WIN32)
 if (UNIX)
-    target_link_libraries(Main backtrace wayland-client WaylandProtocol sodium uuid m)
+    target_link_libraries(Main backtrace wayland-client WaylandProtocol sodium uuid m rt)
     add_dependencies(Main WaylandProtocol)
 endif (UNIX)
 

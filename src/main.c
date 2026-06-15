@@ -693,10 +693,10 @@ int main() {
         surface = ret.surface;
         windowHandle = ret.windowHandle;
         size = ret.size;
-        assert(surface != NULL);
-        assert(size.width != 0);
-        assert(size.height != 0);
-        assert(size.width != DEFAULT_SURFACE_SIZE.width && size.height != DEFAULT_SURFACE_SIZE.height);
+        // assert(surface != NULL);
+        // assert(size.width != 0);
+        // assert(size.height != 0);
+        // assert(size.width != DEFAULT_SURFACE_SIZE.width && size.height != DEFAULT_SURFACE_SIZE.height);
     }
     {
         // so we need to refactor the logic so that surface format is chosen when physical device is chosen
@@ -741,11 +741,11 @@ int main() {
         InitSwapchainParams params = {
             .extent = size,
 
-            .device = device,
-            .physicalDevice = physicalDevice,
-            .surface = surface,
-            .surfaceFormat = surfaceFormat,
-            .graphicsQueueFamily = graphicsQueueFamily,
+    //         .device = device,
+    //         .physicalDevice = physicalDevice,
+    //         .surface = surface,
+    //         .surfaceFormat = surfaceFormat,
+    //         .graphicsQueueFamily = graphicsQueueFamily,
 
             .oldSwapchain = VK_NULL_HANDLE,
             .swapchainCleanupHandle = swapchainCleanupHandle,
@@ -921,6 +921,18 @@ int main() {
                     vkUpdateDescriptorSets(device, 1, &drawImageWrite, 0, NULL);
                 }
             }
+            // if (update.resize) {
+            //     size = update.newSize;
+            //     printf("new size: %d x %d\n", size.width, size.height);
+            //     if (size.width < 0 || size.height < 0) {
+            //         size = (VkExtent2D) {
+            //             .width = 0,
+            //             .height = 0,
+            //         };
+            //     }
+            //     if (size.width * size.height > 0) {
+            //         InitSwapchainParams swapchainParams = {
+            //             .extent = size,
 
             if (update.shouldDraw && size.width * size.height > 0) {
                 frameNumber++;
