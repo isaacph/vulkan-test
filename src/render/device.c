@@ -11,8 +11,10 @@
 
 const char* const ENABLE_DEVICE_EXTENSIONS[] = {
     "VK_KHR_swapchain",
+    "VK_KHR_dynamic_rendering",
+    "VK_KHR_synchronization2",
 };
-const size_t ENABLE_DEVICE_EXTENSIONS_COUNT = 1;
+const size_t ENABLE_DEVICE_EXTENSIONS_COUNT = 3;
 
 static void on_destroy_device(void* ptr, sc_t id) {
     VkDevice device = (VkDevice) ptr;
@@ -166,6 +168,7 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
         checkMalloc(properties);
         check(vkEnumerateDeviceExtensionProperties(chosenPhysicalDevice, layerName,
                     &propertyCount, properties));
+        // print_VkExtensionProperties(propertyCount, properties);
 
         // check required extensions are available
         for (int propertyIndex = 0; propertyIndex < (int) propertyCount;
@@ -205,6 +208,8 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
                     "missing required Vulkan device extension: %s\n",
                     extensionName);
             exception_msg(msg);
+        } else {
+            printf("Found required vulkan extension: %s\n", ENABLE_DEVICE_EXTENSIONS[requiredIndex]);
         }
     }
     printf("Contains all required Vulkan device extensions\n"); 
@@ -243,13 +248,19 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
 
     // check for available features and make feature request
     VkPhysicalDeviceFeatures2 features = {0};
+    VkPhysicalDeviceVulkan13Features features13 = {0};
     {
         VkPhysicalDevice physDevice = chosenPhysicalDevice;
         features = (VkPhysicalDeviceFeatures2) {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-            .pNext = NULL,
+            .pNext = &features13,
         };
-        vkGetPhysicalDeviceFeatures2(physDevice, &features);
+        features13 = (VkPhysicalDeviceVulkan13Features) {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+            .dynamicRendering = true,
+            .synchronization2 = true,
+        };
+        // vkGetPhysicalDeviceFeatures2(chosenPhysicalDevice, &features);
         // TODO: check for enough physical device features?
         // validateEnabledFeatures(&features);
     }

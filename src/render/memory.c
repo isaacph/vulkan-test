@@ -42,6 +42,15 @@ void cleanup_allocations(void* user_ptr, sc_t id) {
 Allocation rc_allocate_memory(VkPhysicalDevice physicalDevice, VkDevice device, Allocations* allocations, VkMemoryRequirements requirements,
         uint32_t* requiredFlagsLevels, int requiredFlagsLevelsCount) {
     printf("allocate req: %lld\n", requirements.size);
+    VkDeviceSize size = requirements.size;
+    {
+        VkDeviceSize dividedSize = (requirements.size / allocations->deviceLimits.nonCoherentAtomSize);
+        VkDeviceSize multipliedSize = dividedSize * allocations->deviceLimits.nonCoherentAtomSize;
+        if (multipliedSize != size) {
+            size = (dividedSize + 1) * allocations->deviceLimits.nonCoherentAtomSize;
+            printf("rounded allocation size up to: %lld (because nonCoherentAtomSize = %lld)\n", size, allocations->deviceLimits.nonCoherentAtomSize);
+        }
+    }
     assert(requiredFlagsLevelsCount >= 1);
     // look through memoryTypeBits for a memory type that has sufficient memory and is DEVICE_LOCAL
     // then allocate VkDeviceMemory from that memory type
@@ -126,17 +135,17 @@ Allocation rc_allocate_memory(VkPhysicalDevice physicalDevice, VkDevice device, 
         };
         check(vkAllocateMemory(device, &allocateInfo, NULL, &memory));
         allocations->allocation[chosenMemoryTypeIndex] = memory;
-        allocations->allocationOffset[chosenMemoryTypeIndex] = requirements.size;
+        allocations->allocationOffset[chosenMemoryTypeIndex] = size;
         allocations->toDeallocate[chosenMemoryTypeIndex] = memory; // sets it up for cleanup
     } else {
         // find start of next aligned block
         VkDeviceSize nextAlignedPosition =
             (allocations->allocationOffset[chosenMemoryTypeIndex] / requirements.alignment + 1) * requirements.alignment;
-        if (nextAlignedPosition + requirements.size >= allocationSize) {
+        if (nextAlignedPosition + size >= allocationSize) {
             exception_msg("Failed to allocate memory: currently we only have one "
                     "allocation per memory type and that allocation is out of memory");
         }
-        allocations->allocationOffset[chosenMemoryTypeIndex] = nextAlignedPosition + requirements.size;
+        allocations->allocationOffset[chosenMemoryTypeIndex] = nextAlignedPosition + size;
         memory = allocations->allocation[chosenMemoryTypeIndex];
         address = nextAlignedPosition;
     }
@@ -145,7 +154,7 @@ Allocation rc_allocate_memory(VkPhysicalDevice physicalDevice, VkDevice device, 
         .memory = memory,
         .address = address,
         .memoryTypeIndex = chosenMemoryTypeIndex,
-        .size = requirements.size,
+        .size = size,
         .flags = chosenMemoryTypeIndexFlags,
     };
 }

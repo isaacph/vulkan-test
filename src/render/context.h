@@ -155,6 +155,7 @@ void rc_copy_image_to_image(VkCommandBuffer cmd, VkImage source, VkImage destina
 
 // memory allocation API
 typedef struct Allocations {
+    VkPhysicalDeviceLimits deviceLimits;
     VkDeviceMemory allocation[VK_MAX_MEMORY_TYPES];
     VkDeviceSize allocationOffset[VK_MAX_MEMORY_TYPES];
     VkDeviceMemory* toDeallocate; // ptr to array of length VK_MAX_MEMORY_TYPES. Make sure to add all allocations to this array too for cleanup

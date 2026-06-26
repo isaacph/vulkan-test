@@ -130,6 +130,7 @@ typedef struct SecondSwapchainImage {
 } SecondSwapchainImage;
 SecondSwapchainImage rc_init_second_swapchain_image(SecondSwapchainImageInit params) {
     bool newImage = params.drawImage == VK_NULL_HANDLE;
+    printf("Initializing second swapchain image. New: %d\n", newImage);
     VkDeviceSize drawImageMemoryPosition = params.drawImageMemoryPosition;
     VkDeviceMemory drawImageMemory = params.drawImageMemory;
 
@@ -172,6 +173,7 @@ SecondSwapchainImage rc_init_second_swapchain_image(SecondSwapchainImageInit par
         );
         drawImageMemory = allocation.memory;
         drawImageMemoryPosition = allocation.address;
+        check(vkBindImageMemory(params.device, drawImage, drawImageMemory, 0));
     } else {
         // how do we reallocate if the size could be different?????
         // best idea right now: think of biggest possible screen size and just reserve that much lol
@@ -184,6 +186,7 @@ SecondSwapchainImage rc_init_second_swapchain_image(SecondSwapchainImageInit par
     if (newImage) {
         vkDestroyImageView(params.device, params.drawImageView, NULL);
     }
+    printf("main.c:rc_init_second_swapchain_image Image about to be used for image view ID: %p\n", drawImage);
     VkImageViewCreateInfo imageViewInfo = rc_imageview_create_info(imageFormat, drawImage, VK_IMAGE_ASPECT_COLOR_BIT);
     VkImageView drawImageView = VK_NULL_HANDLE;
     check(vkCreateImageView(params.device, &imageViewInfo, NULL, &drawImageView));
@@ -257,7 +260,10 @@ RcImage rc_create_image(RcCreateImageParameters params, StaticCache* cleanup) {
             requiredFlags, sizeof(requiredFlags) / sizeof(uint32_t));
     // todo add cleanup
 
+    check(vkBindImageMemory(params.device, drawImage, allocation.memory, 0));
+
     // maybe use VK_IMAGE_ASPECT_COLOR_BIT
+    printf("main.c:rc_create_image Image about to be used for image view ID: %p\n", drawImage);
     VkImageViewCreateInfo imageViewInfo = rc_imageview_create_info(params.format, drawImage, params.imageAspectFlags);
     VkImageView drawImageView = VK_NULL_HANDLE;
     check(vkCreateImageView(params.device, &imageViewInfo, NULL, &drawImageView));
@@ -301,7 +307,8 @@ void rc_write_image(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue gr
     printf("memory: %p, address: %lld, size: %lld\n", allocation.memory, allocation.address, allocation.size);
     check(vkMapMemory(device, allocation.memory, allocation.address, allocation.size, 0, &mappedMemory));
     memcpy(mappedMemory, data, length);
-    if ((allocation.flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) != 0) {
+    if ((allocation.flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) == 0) {
+        printf("Flushing mapped memory ranges, size: %lld\n", allocation.size);
         VkMappedMemoryRange range = {
             .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
             .pNext = NULL,
@@ -330,10 +337,6 @@ void rc_write_image(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue gr
     vkCmdCopyBufferToImage(cmd, buffer, image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
     rc_transition_image(cmd, image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     rc_end_immediate(device, graphicsQueue, immediate);
-
-    // remove buffer
-    rc_deallocate_temp_memory(allocations, allocation);
-    vkDestroyBuffer(device, buffer, NULL);
 }
 
 typedef struct DescriptorPoolsCleanup {
@@ -613,6 +616,7 @@ InitPipelines rc_init_graphics_pipelines(VkDevice device, VkFormat drawImageForm
         .pColorBlendState = &colorBlending,
         .pDepthStencilState = &depthStencil,
         .pDynamicState = &dynamicInfo,
+        .layout = pipelineLayout,
     };
     check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pipeline));
 
@@ -659,11 +663,6 @@ int main() {
     VkDeviceSize drawImageMemoryPosition = 0;
 
     Allocations allocations = { 0 };
-    for (int i = 0; i < VK_MAX_MEMORY_TYPES; ++i) {
-        allocations.allocation[i] = VK_NULL_HANDLE;
-        allocations.allocationOffset[i] = 0;
-    }
-    allocations.toDeallocate = calloc(VK_MAX_MEMORY_TYPES, sizeof(VkDeviceMemory));
 
     VkDescriptorPool pool = VK_NULL_HANDLE;
     VkDescriptorSetLayout layout = VK_NULL_HANDLE;
@@ -713,12 +712,26 @@ int main() {
         physicalDevice = ret.physicalDevice;
         graphicsQueue = ret.graphicsQueue;
         assert(ret.device != NULL);
+    }
+    // set up allocations system
+    {
+        for (int i = 0; i < VK_MAX_MEMORY_TYPES; ++i) {
+            allocations.allocation[i] = VK_NULL_HANDLE;
+            allocations.allocationOffset[i] = 0;
+        }
+        allocations.toDeallocate = calloc(VK_MAX_MEMORY_TYPES, sizeof(VkDeviceMemory));
+
         AllocationsCleanup* allocCleanup = checkMalloc(malloc(sizeof(AllocationsCleanup)));
         *allocCleanup = (AllocationsCleanup) {
-            .device = ret.device,
+            .device = device,
             .toDeallocate = allocations.toDeallocate,
         };
         StaticCache_add(&cleanup, cleanup_allocations, allocCleanup);
+
+        // Memory system needs access to limits
+        VkPhysicalDeviceProperties properties = {0};
+        vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+        allocations.deviceLimits = properties.limits;
     }
     // init "immediate submit" constructs
     {
@@ -812,9 +825,9 @@ int main() {
             0xF00FEBFF, 0x000000FF,
             0x000000FF, 0xE534EBFF,
         };
+        const int length = 4 * sizeof(uint64_t);
         texture = rc_create_image(params, &cleanup);
-        rc_write_image(physicalDevice, device, graphicsQueue, &allocations,
-                immediate, texture, data, 4);
+        rc_write_image(physicalDevice, device, graphicsQueue, &allocations, immediate, texture, data, 4 * sizeof(uint64_t));
     }
     {
         DrawParams params = {
@@ -921,6 +934,7 @@ int main() {
                 params.trianglePipeline = trianglePipeline;
                 params.trianglePipelineLayout = trianglePipelineLayout;
                 rc_draw(params);
+                exception_msg("temporary pause");
             }
         }
     }

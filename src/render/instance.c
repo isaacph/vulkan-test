@@ -15,14 +15,14 @@ const char* const ENABLE_EXTENSIONS[] = {
     "VK_EXT_swapchain_colorspace",
     "VK_EXT_debug_utils",
 };
-const size_t ENABLE_EXTENSIONS_COUNT = 4;
+const size_t ENABLE_EXTENSIONS_COUNT = 5;
 
 // uses VK_MAX_EXTENSION_NAME_SIZE according to:
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkLayerProperties.html
 const char* const ENABLE_LAYERS[] = {
     "VK_LAYER_KHRONOS_validation",
 };
-const size_t ENABLE_LAYERS_COUNT = 0;
+const size_t ENABLE_LAYERS_COUNT = 1;
 
 
 static void cleanup_instance(void* user_ptr, sc_t id) {

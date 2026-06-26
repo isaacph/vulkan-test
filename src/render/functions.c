@@ -100,6 +100,8 @@ void init_device_functions(VkDevice device) {
     check(vkCreateComputePipelines = (PFN_vkCreateComputePipelines)load(device, "vkCreateComputePipelines"));
     check(vkCmdBeginRendering = (PFN_vkCmdBeginRendering)load(device, "vkCmdBeginRendering"));
     check(vkCmdEndRendering = (PFN_vkCmdEndRendering)load(device, "vkCmdEndRendering"));
+    check(vkCmdBeginRenderingKHR = (PFN_vkCmdBeginRenderingKHR)load(device, "vkCmdBeginRenderingKHR"));
+    check(vkCmdEndRenderingKHR = (PFN_vkCmdEndRenderingKHR)load(device, "vkCmdEndRenderingKHR"));
     check(vkCmdSetViewport = (PFN_vkCmdSetViewport)load(device, "vkCmdSetViewport"));
     check(vkCmdSetScissor = (PFN_vkCmdSetScissor)load(device, "vkCmdSetScissor"));
     check(vkCreateBuffer = (PFN_vkCreateBuffer)load(device, "vkCreateBuffer"));

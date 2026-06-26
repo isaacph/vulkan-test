@@ -190,6 +190,8 @@ InitSwapchain rc_init_swapchain(InitSwapchainParams params, StaticCache* cleanup
             },
         };
         VkImageView view = VK_NULL_HANDLE;
+
+        printf("Image about to be used for image view ID: %p\n", images[i].swapchainImage);
         check(vkCreateImageView(
             params.device,
             &imageViewCreateInfo,

@@ -135,6 +135,8 @@ EXTERN PFN_vkCmdDispatch vkCmdDispatch INIT;
 EXTERN PFN_vkCreateComputePipelines vkCreateComputePipelines INIT;
 EXTERN PFN_vkCmdBeginRendering vkCmdBeginRendering INIT;
 EXTERN PFN_vkCmdEndRendering vkCmdEndRendering INIT;
+EXTERN PFN_vkCmdBeginRenderingKHR vkCmdBeginRenderingKHR INIT;
+EXTERN PFN_vkCmdEndRenderingKHR vkCmdEndRenderingKHR INIT;
 EXTERN PFN_vkCmdSetViewport vkCmdSetViewport INIT;
 EXTERN PFN_vkCmdSetScissor vkCmdSetScissor INIT;
 EXTERN PFN_vkCreateBuffer vkCreateBuffer INIT;
