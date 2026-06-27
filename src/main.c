@@ -238,6 +238,7 @@ RcImage rc_create_image(RcCreateImageParameters params, StaticCache* cleanup) {
     drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
     drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    drawImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
     VkExtent3D extent = {
         .width = params.size.width,
         .height = params.size.height,
@@ -650,7 +651,8 @@ int main() {
     VkQueue graphicsQueue = VK_NULL_HANDLE;
     VkSwapchainKHR swapchain;
     SwapchainImageData swapchainImages[RC_SWAPCHAIN_LENGTH];
-    FrameData frames[FRAME_OVERLAP];
+    FrameData frames[RC_SWAPCHAIN_LENGTH];
+    VkSemaphore swapchainSemaphores[RC_SWAPCHAIN_LENGTH];
     sc_t swapchainCleanupHandle = SC_ID_NONE;
 
     RcImmediateConstructs immediate;
@@ -768,6 +770,10 @@ int main() {
         for (int i = 0; i < FRAME_OVERLAP; ++i) {
             assert(ret.frames[i].commandPool != VK_NULL_HANDLE);
             frames[i] = ret.frames[i];
+        }
+        for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+            assert(ret.swapchainSemaphores[i] != VK_NULL_HANDLE);
+            swapchainSemaphores[i] = ret.swapchainSemaphores[i];
         }
     }
     // init the image that we draw to
@@ -922,8 +928,6 @@ int main() {
 
             if (update.shouldDraw && size.width * size.height > 0) {
                 frameNumber++;
-                params.frame = frames[frameNumber % 2];
-                params.color = fabs(sin(frameNumber / 120.f));
                 params.swapchainExtent = size;
                 params.drawImageExtent = size;
                 params.drawImage = drawImage;
@@ -933,8 +937,15 @@ int main() {
                 params.gradientPipelineLayout = gradientPipelineLayout;
                 params.trianglePipeline = trianglePipeline;
                 params.trianglePipelineLayout = trianglePipelineLayout;
+                params.frame = frames[frameNumber % FRAME_OVERLAP];
+                for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+                    params.swapchainSemaphore[i] = swapchainSemaphores[i];
+                }
+
                 rc_draw(params);
-                exception_msg("temporary pause");
+                // if (frameNumber >= 5) {
+                //     exception_msg("temp pause");
+                // }
             }
         }
     }

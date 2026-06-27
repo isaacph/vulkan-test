@@ -11,7 +11,7 @@
 typedef struct FrameData {
     VkCommandPool commandPool;
     VkCommandBuffer mainCommandBuffer;
-    VkSemaphore swapchainSemaphore, renderSemaphore;
+    VkSemaphore renderSemaphore;
     VkFence renderFence;
 } FrameData;
 
@@ -106,6 +106,7 @@ typedef struct InitLoopParams {
 } InitLoopParams;
 typedef struct InitLoop {
     FrameData frames[FRAME_OVERLAP];
+    VkSemaphore swapchainSemaphores[RC_SWAPCHAIN_LENGTH];
 } InitLoop;
 InitLoop rc_init_loop(InitLoopParams params, StaticCache* cleanup);
 
@@ -124,6 +125,7 @@ typedef struct DrawParams {
     float color;
     VkQueue graphicsQueue;
     SwapchainImageData swapchainImages[RC_SWAPCHAIN_LENGTH];
+    VkSemaphore swapchainSemaphore[RC_SWAPCHAIN_LENGTH];
     VkImage drawImage;
     VkImageView drawImageView;
     VkExtent2D drawImageExtent;

@@ -135,7 +135,7 @@ InitSwapchain rc_init_swapchain(InitSwapchainParams params, StaticCache* cleanup
             .imageExtent = extent,
             .imageArrayLayers = 1, // not VR "stereoscopic 3D"
             // will we need dst/src later?
-            .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, // we want to use color (not depth RN)
+            .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, // we want to use color (not depth RN)
             .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
             // we found the queue family earlier
             .queueFamilyIndexCount = 1,

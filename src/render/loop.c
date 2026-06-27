@@ -11,6 +11,7 @@
 typedef struct CleanupLoop {
     VkDevice device;
     FrameData frames[FRAME_OVERLAP];
+    VkSemaphore swapchainSemaphores[RC_SWAPCHAIN_LENGTH];
 } CleanupLoop;
 static void cleanup_loop(void* ptr, sc_t id) {
     CleanupLoop* cleanup = (CleanupLoop*) ptr;
@@ -20,7 +21,9 @@ static void cleanup_loop(void* ptr, sc_t id) {
         vkDestroyCommandPool(cleanup->device, cleanup->frames[i].commandPool, NULL);
         vkDestroyFence(cleanup->device, cleanup->frames[i].renderFence, NULL);
         vkDestroySemaphore(cleanup->device, cleanup->frames[i].renderSemaphore, NULL);
-        vkDestroySemaphore(cleanup->device, cleanup->frames[i].swapchainSemaphore, NULL);
+    }
+    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+        vkDestroySemaphore(cleanup->device, cleanup->swapchainSemaphores[i], NULL);
     }
 }
 
@@ -28,6 +31,7 @@ InitLoop rc_init_loop(InitLoopParams params, StaticCache* cleanup) {
     assert(params.device != VK_NULL_HANDLE);
 
     FrameData frames[FRAME_OVERLAP];
+    VkSemaphore swapchainSemaphores[RC_SWAPCHAIN_LENGTH];
 
     // init command pools and buffers for each frame
     for (uint32_t index = 0; index < FRAME_OVERLAP; ++index) {
@@ -55,34 +59,37 @@ InitLoop rc_init_loop(InitLoopParams params, StaticCache* cleanup) {
         frames[index].mainCommandBuffer = commandBuffer;
     }
 
+
+    VkFenceCreateInfo fenceCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+    };
+    VkSemaphoreCreateInfo semaphoreCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+    };
     for (int i = 0; i < FRAME_OVERLAP; ++i) {
         VkFence renderFence = VK_NULL_HANDLE;
-        VkSemaphore swapchainSemaphore = VK_NULL_HANDLE;
         VkSemaphore renderSemaphore = VK_NULL_HANDLE;
-
-        VkFenceCreateInfo fenceCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-            .pNext = NULL,
-            .flags = VK_FENCE_CREATE_SIGNALED_BIT,
-        };
         check(vkCreateFence(params.device, &fenceCreateInfo, NULL, &renderFence));
-
-        VkSemaphoreCreateInfo semaphoreCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-            .pNext = NULL,
-            .flags = 0,
-        };
-        check(vkCreateSemaphore(params.device, &semaphoreCreateInfo, NULL, &swapchainSemaphore));
         check(vkCreateSemaphore(params.device, &semaphoreCreateInfo, NULL, &renderSemaphore));
-
         frames[i].renderFence = renderFence;
-        frames[i].swapchainSemaphore = swapchainSemaphore;
         frames[i].renderSemaphore = renderSemaphore;
+    }
+    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+        VkSemaphore swapchainSemaphore = VK_NULL_HANDLE;
+        check(vkCreateSemaphore(params.device, &semaphoreCreateInfo, NULL, &swapchainSemaphore));
+        swapchainSemaphores[i] = swapchainSemaphore;
     }
 
     InitLoop initLoop = { 0 };
     for (int i = 0; i < FRAME_OVERLAP; ++i) {
         initLoop.frames[i] = frames[i];
+    }
+    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+        initLoop.swapchainSemaphores[i] = swapchainSemaphores[i];
     }
     return initLoop;
 }
@@ -138,7 +145,7 @@ void rc_draw(DrawParams params) {
     check(vkResetFences(device, 1, &frame.renderFence));
 
     uint32_t swapchainImageIndex;
-    result = vkAcquireNextImageKHR(device, swapchain, 1000000000, frame.swapchainSemaphore, VK_NULL_HANDLE, &swapchainImageIndex);
+    result = vkAcquireNextImageKHR(device, swapchain, 1000000000, frame.renderSemaphore, VK_NULL_HANDLE, &swapchainImageIndex);
     if (result != VK_SUCCESS) {
         printf("Non-success vkAcquireNextImageKHR result: %d, returning\n", result);
         return;
@@ -213,7 +220,7 @@ void rc_draw(DrawParams params) {
     vkCmdSetScissor(cmd, 0, 1, &scissor);
     vkCmdDraw(cmd, 3, 1, 0, 0); // draws 3 vertices
     vkCmdEndRendering(cmd);
-    rc_transition_image(cmd, params.drawImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    rc_transition_image(cmd, params.drawImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
     // write to swapchain image
     rc_transition_image(cmd, image->swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -223,8 +230,8 @@ void rc_draw(DrawParams params) {
     check(vkEndCommandBuffer(cmd));
 
     VkCommandBufferSubmitInfo cmdInfo = command_buffer_submit_info(cmd);
-    VkSemaphoreSubmitInfo waitInfo = semaphore_submit_info(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, frame.swapchainSemaphore);
-    VkSemaphoreSubmitInfo signalInfo = semaphore_submit_info(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, frame.renderSemaphore);
+    VkSemaphoreSubmitInfo waitInfo = semaphore_submit_info(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, frame.renderSemaphore);
+    VkSemaphoreSubmitInfo signalInfo = semaphore_submit_info(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, params.swapchainSemaphore[swapchainImageIndex]);
     VkSubmitInfo2 submit = submit_info(&cmdInfo, &signalInfo, &waitInfo);
     check(vkQueueSubmit2(graphicsQueue, 1, &submit, frame.renderFence));
 
@@ -238,7 +245,7 @@ void rc_draw(DrawParams params) {
         .pSwapchains = &swapchain,
         .swapchainCount = 1,
 
-        .pWaitSemaphores = &frame.renderSemaphore,
+        .pWaitSemaphores = &params.swapchainSemaphore[swapchainImageIndex],
         .waitSemaphoreCount = 1,
 
         .pImageIndices = &swapchainImageIndex,
