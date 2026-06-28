@@ -13,6 +13,7 @@ typedef struct SwapchainCleanup {
     VkImageView imageViews[RC_SWAPCHAIN_LENGTH];
 } SwapchainCleanup;
 static void cleanup_swapchain(void* ptr, sc_t id) {
+    printf("Clean up swapchain called for some reason!\n");
     SwapchainCleanup* params = (SwapchainCleanup*) ptr;
     vkDestroySwapchainKHR(params->device, params->swapchain, NULL);
     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
@@ -35,6 +36,12 @@ InitSwapchain rc_init_swapchain(InitSwapchainParams params, StaticCache* cleanup
     }
     assert(params.extent.width > 0);
     assert(params.extent.height > 0);
+
+    // If we have an old swapchain, we have to wait for an idle device before creating a new one
+    if (params.oldSwapchain != VK_NULL_HANDLE) {
+        printf("Waiting for device to be idle\n");
+        vkDeviceWaitIdle(params.device);
+    }
 
     // validate surface extent and image counts
     VkExtent2D extent = { 0 };

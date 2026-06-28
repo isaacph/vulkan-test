@@ -113,22 +113,21 @@ typedef struct SecondSwapchainImageInit {
     VkDevice device;
     VkImage drawImage; // current version of this image, or VK_NULL_HANDLE
     VkImageView drawImageView; // ignored if image is VK_NULL_HANDLE
-    SecondSwapchainImageCleanup* drawImageCleanup; // current cleanup handle, or NULL
+    sc_t cleanupHandle; // current cleanup handle, or SC_ID_NONE
     VkDeviceMemory drawImageMemory; // ignored if image is VK_NULL_HANDLE
     VkDeviceSize drawImageMemoryPosition; // ignored if image is VK_NULL_HANDLE
     VkExtent2D windowSize;
     Allocations* allocations;
-    StaticCache* cleanup;
 } SecondSwapchainImageInit;
 typedef struct SecondSwapchainImage {
     VkImage drawImage; // new version of this image
     VkImageView drawImageView;
     VkFormat drawImageFormat;
-    SecondSwapchainImageCleanup* drawImageCleanup; // new version of cleanup handle
+    sc_t cleanupHandle; // new version of cleanup handle
     VkDeviceMemory drawImageMemory;
     VkDeviceSize drawImageMemoryPosition;
 } SecondSwapchainImage;
-SecondSwapchainImage rc_init_second_swapchain_image(SecondSwapchainImageInit params) {
+SecondSwapchainImage rc_init_second_swapchain_image(SecondSwapchainImageInit params, StaticCache* cleanup) {
     bool newImage = params.drawImage == VK_NULL_HANDLE;
     printf("Initializing second swapchain image. New: %d\n", newImage);
     VkDeviceSize drawImageMemoryPosition = params.drawImageMemoryPosition;
@@ -147,15 +146,10 @@ SecondSwapchainImage rc_init_second_swapchain_image(SecondSwapchainImageInit par
     VkFormat imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
     VkImageCreateInfo createInfo = rc_image_create_info(imageFormat, drawImageUsages, extent);
 
-    SecondSwapchainImageCleanup* drawImageCleanup = params.drawImageCleanup;
-    if (newImage) {
-        drawImageCleanup = checkMalloc(malloc(sizeof(SecondSwapchainImageCleanup)));
-        drawImageCleanup->device = params.device;
-    }
+    SecondSwapchainImageCleanup* drawImageCleanup = checkMalloc(malloc(sizeof(SecondSwapchainImageCleanup)));
+    drawImageCleanup->device = params.device;
+
     VkImage drawImage = params.drawImage;
-    if (newImage) {
-        vkDestroyImage(params.device, drawImage, NULL);
-    }
     check(vkCreateImage(params.device, &createInfo, NULL, &drawImage));
     drawImageCleanup->image = drawImage;
     VkMemoryRequirements imageMemoryRequirements = { 0 };
@@ -192,14 +186,13 @@ SecondSwapchainImage rc_init_second_swapchain_image(SecondSwapchainImageInit par
     check(vkCreateImageView(params.device, &imageViewInfo, NULL, &drawImageView));
     drawImageCleanup->imageView = drawImageView;
 
-    if (newImage) {
-        StaticCache_add(params.cleanup, cleanup_second_swapchain_image, (void*) drawImageCleanup);
-    }
+    // this will delete the old image if it exists
+    sc_t cleanupHandle = StaticCache_put(cleanup, cleanup_second_swapchain_image, (void*) drawImageCleanup, params.cleanupHandle);
 
     return (SecondSwapchainImage) {
         .drawImage = drawImage,
         .drawImageView = drawImageView,
-        .drawImageCleanup = drawImageCleanup,
+        .cleanupHandle = cleanupHandle,
         .drawImageMemory = drawImageMemory,
         .drawImageMemoryPosition = drawImageMemoryPosition,
         .drawImageFormat = imageFormat,
@@ -348,7 +341,7 @@ typedef struct DescriptorPoolsCleanup {
 } DescriptorPoolsCleanup;
 static void cleanup_descriptor_pools(void* user_ptr, sc_t id) {
     DescriptorPoolsCleanup* cleanup = (DescriptorPoolsCleanup*) user_ptr;
-    vkFreeDescriptorSets(cleanup->device, cleanup->pool, 1, &cleanup->set);
+    // vkFreeDescriptorSets(cleanup->device, cleanup->pool, 1, &cleanup->set);
     vkDestroyDescriptorSetLayout(cleanup->device, cleanup->layout, NULL);
     vkDestroyDescriptorPool(cleanup->device, cleanup->pool, NULL);
     free(cleanup);
@@ -660,7 +653,7 @@ int main() {
     VkImage drawImage = VK_NULL_HANDLE; // the image we draw directly to, copied to swapchain
     VkImageView drawImageView = VK_NULL_HANDLE;
     VkFormat drawImageFormat = 0;
-    SecondSwapchainImageCleanup* drawImageCleanup = NULL;
+    sc_t drawImageCleanupHandle = SC_ID_NONE;
     VkDeviceMemory drawImageMemory = VK_NULL_HANDLE; // we need to be able to reallocate this memory on resize so record its properties here
     VkDeviceSize drawImageMemoryPosition = 0;
 
@@ -783,18 +776,17 @@ int main() {
             .device = device,
             .drawImage = VK_NULL_HANDLE,
             .drawImageView = VK_NULL_HANDLE,
-            .drawImageCleanup = NULL,
+            .cleanupHandle = SC_ID_NONE,
             .drawImageMemory = 0,
             .drawImageMemoryPosition = 0,
             .windowSize = size,
             .allocations = &allocations,
-            .cleanup = &cleanup,
         };
-        SecondSwapchainImage ret = rc_init_second_swapchain_image(params);
+        SecondSwapchainImage ret = rc_init_second_swapchain_image(params, &cleanup);
         drawImage = ret.drawImage;
         drawImageView = ret.drawImageView;
         drawImageFormat = ret.drawImageFormat;
-        drawImageCleanup = ret.drawImageCleanup;
+        drawImageCleanupHandle = ret.cleanupHandle;
         drawImageMemory = ret.drawImageMemory;
         drawImageMemoryPosition = ret.drawImageMemoryPosition;
     }
@@ -832,8 +824,9 @@ int main() {
             0x000000FF, 0xE534EBFF,
         };
         const int length = 4 * sizeof(uint64_t);
-        texture = rc_create_image(params, &cleanup);
-        rc_write_image(physicalDevice, device, graphicsQueue, &allocations, immediate, texture, data, 4 * sizeof(uint64_t));
+        // TODO
+        // texture = rc_create_image(params, &cleanup);
+        // rc_write_image(physicalDevice, device, graphicsQueue, &allocations, immediate, texture, data, 4 * sizeof(uint64_t));
     }
     {
         DrawParams params = {
@@ -893,17 +886,16 @@ int main() {
                             .device = device,
                             .drawImage = drawImage,
                             .drawImageView = drawImageView,
-                            .drawImageCleanup = drawImageCleanup,
+                            .cleanupHandle = drawImageCleanupHandle,
                             .drawImageMemory = drawImageMemory,
                             .drawImageMemoryPosition = drawImageMemoryPosition,
                             .windowSize = size,
                             .allocations = &allocations,
-                            .cleanup = &cleanup,
                         };
-                        SecondSwapchainImage ret = rc_init_second_swapchain_image(params);
+                        SecondSwapchainImage ret = rc_init_second_swapchain_image(params, &cleanup);
                         drawImage = ret.drawImage;
                         drawImageView = ret.drawImageView;
-                        drawImageCleanup = ret.drawImageCleanup;
+                        drawImageCleanupHandle = ret.cleanupHandle;
                         drawImageMemory = ret.drawImageMemory;
                         drawImageMemoryPosition = ret.drawImageMemoryPosition;
                     }
@@ -950,6 +942,7 @@ int main() {
         }
     }
 
+    vkDeviceWaitIdle(device);
     StaticCache_clean_up(&cleanup);
 }
 

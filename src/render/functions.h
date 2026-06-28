@@ -146,6 +146,7 @@ EXTERN PFN_vkBindBufferMemory vkBindBufferMemory INIT;
 EXTERN PFN_vkMapMemory vkMapMemory INIT;
 EXTERN PFN_vkCmdCopyBufferToImage vkCmdCopyBufferToImage INIT;
 EXTERN PFN_vkFlushMappedMemoryRanges vkFlushMappedMemoryRanges INIT;
+EXTERN PFN_vkDeviceWaitIdle vkDeviceWaitIdle INIT;
 
 #undef EXTERN
 #undef INIT

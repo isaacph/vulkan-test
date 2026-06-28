@@ -14,6 +14,7 @@ typedef struct CleanupLoop {
     VkSemaphore swapchainSemaphores[RC_SWAPCHAIN_LENGTH];
 } CleanupLoop;
 static void cleanup_loop(void* ptr, sc_t id) {
+    printf("cleanup loop");
     CleanupLoop* cleanup = (CleanupLoop*) ptr;
     vkDeviceWaitIdle(cleanup->device);
     for (int i = 0; i < FRAME_OVERLAP; ++i) {
@@ -25,6 +26,7 @@ static void cleanup_loop(void* ptr, sc_t id) {
     for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
         vkDestroySemaphore(cleanup->device, cleanup->swapchainSemaphores[i], NULL);
     }
+    free(cleanup);
 }
 
 InitLoop rc_init_loop(InitLoopParams params, StaticCache* cleanup) {
@@ -83,6 +85,18 @@ InitLoop rc_init_loop(InitLoopParams params, StaticCache* cleanup) {
         check(vkCreateSemaphore(params.device, &semaphoreCreateInfo, NULL, &swapchainSemaphore));
         swapchainSemaphores[i] = swapchainSemaphore;
     }
+
+    CleanupLoop* cleanupResources = malloc(sizeof(CleanupLoop));
+    *cleanupResources = (CleanupLoop) {
+        .device = params.device,
+    };
+    for (int i = 0; i < FRAME_OVERLAP; ++i) {
+        cleanupResources->frames[i] = frames[i];
+    }
+    for (int i = 0; i < RC_SWAPCHAIN_LENGTH; ++i) {
+        cleanupResources->swapchainSemaphores[i] = swapchainSemaphores[i];
+    }
+    StaticCache_add(cleanup, cleanup_loop, cleanupResources);
 
     InitLoop initLoop = { 0 };
     for (int i = 0; i < FRAME_OVERLAP; ++i) {

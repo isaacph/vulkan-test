@@ -112,5 +112,6 @@ void init_device_functions(VkDevice device) {
     check(vkCmdCopyBufferToImage = (PFN_vkCmdCopyBufferToImage)load(device, "vkCmdCopyBufferToImage"));
     check(vkFreeCommandBuffers = (PFN_vkFreeCommandBuffers)load(device, "vkFreeCommandBuffers"));
     check(vkFlushMappedMemoryRanges = (PFN_vkFlushMappedMemoryRanges)load(device, "vkFlushMappedMemoryRanges"));
+    check(vkDeviceWaitIdle = (PFN_vkDeviceWaitIdle)load(device, "vkDeviceWaitIdle"));
 }
 
