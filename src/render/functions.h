@@ -31,6 +31,8 @@
 // typedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES;
 
 #include <vulkan/vulkan_win32.h>
+#elif defined(__linux__)
+#include <vulkan/vulkan_wayland.h>
 #endif
 
 // init functions
@@ -147,6 +149,7 @@ EXTERN PFN_vkMapMemory vkMapMemory INIT;
 EXTERN PFN_vkCmdCopyBufferToImage vkCmdCopyBufferToImage INIT;
 EXTERN PFN_vkFlushMappedMemoryRanges vkFlushMappedMemoryRanges INIT;
 EXTERN PFN_vkDeviceWaitIdle vkDeviceWaitIdle INIT;
+EXTERN PFN_vkCreateWaylandSurfaceKHR vkCreateWaylandSurfaceKHR INIT;
 
 #undef EXTERN
 #undef INIT

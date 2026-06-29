@@ -1,9 +1,11 @@
 #include "context.h"
+#include "render/util.h"
 #include "util/memory.h"
 #include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vulkan/vulkan_core.h>
 #ifdef __linux__
 #include "wayland.h"
 #include <dlfcn.h>
@@ -19,6 +21,7 @@
 #include <unistd.h>          /* For ftruncate */
 #include "../util/uuid.h"
 #include <poll.h>
+#include <vulkan/vulkan_wayland.h>
 
 // this is slightly overwhelming so let's break it down
 // 1. load a DLL and get proc address for linux - complete
@@ -70,8 +73,11 @@ typedef struct LocalState {
     struct xdg_wm_base *xdg_base;
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
+    VkSurfaceKHR vk_surface;
+    VkInstance vk_instance;
     int wayland_fd;
     bool configured;
+    int width, height;
 } LocalState;
 
 static void LocalState_cleanup(void *ptr, sc_t id_ignored) {
@@ -123,74 +129,98 @@ static const struct wl_buffer_listener wl_buffer_listener = {
 static void xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial) {
     LocalState *ls = (LocalState *)data;
     int ret = 0;
+    if (!ls->configured) {
+        // We don't know yet what the window size is, if needed at all, so not sure how to init a renderer
+        exception_msg("xdg_surface_configure called before xdg_toplevel_configure. TODO: handle this case");
+    }
     // TODO: only ack once we have applied state changes requested by the xdg surface
     printf("Preparing to ACK\n");
-    ls->configured = true;
     xdg_surface_ack_configure(xdg_surface, serial);
 
-    // TODO: move to helper
-    if (ls->shm == NULL) {
-        exception_msg("Wayland has misbehaved and not supplied a wl_shm global");
-    }
-    // to find valid pixel formats: wl_shm_add_listener();
-    // however: "Two formats are required to be supported: ARGB8888, and XRGB8888, which are 24-bit color, with and without an alpha channel respectively."
-    char uuid[128], base_uuid[] = "/wl_shm-";
-    memset(uuid, 0, sizeof(uuid));
-    memcpy(uuid, base_uuid, sizeof(base_uuid));
-    uuid_to_string(generate_uuid(), uuid + sizeof(base_uuid) - 1, 36);
-    int fd = shm_open(uuid, O_EXCL | O_CREAT | O_RDWR, 0600);
-    if (fd == -1) {
-        exception_format("Failed to open shared memory file. errno = %d", errno);
-    }
-    // hardcoding for now - TODO
-    const int width = 1920, height = 1080, bytes_per_pixel = 4, num_buffers = 2;
-    const int shm_size = width * height * bytes_per_pixel * num_buffers;
-    ret = 0;
-    do {
-        ret = ftruncate(fd, shm_size);
-    } while (ret == 0 && errno == EINTR);
-    if (ret == -1) {
-        exception_format("Failed to allocate shared memory buffer of size %d: errno = %d", shm_size, errno);
-    }
-    uint8_t *shm_data = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (shm_data == MAP_FAILED) {
-        exception_format("Failed to map shared memory buffer to memory. errno = %d", errno);
-    }
-    struct wl_shm_pool *shm_pool = wl_shm_create_pool(ls->shm, fd, shm_size);
-    ls->buffer = wl_shm_pool_create_buffer(shm_pool, 0, width, height, width * bytes_per_pixel, WL_SHM_FORMAT_ARGB8888);
-    wl_buffer_add_listener(ls->buffer, &wl_buffer_listener, ls);
-    wl_shm_pool_destroy(shm_pool);
-    close(fd);
-    uint32_t *pixels = (uint32_t *)&shm_data[0];
-    memset(pixels, 0, width * height * bytes_per_pixel);
-    // checkerboard pattern for testing
-    for (int y = 0; y < height; ++y) {
-      for (int x = 0; x < width; ++x) {
-        if ((x + y / 8 * 8) % 16 < 8) {
-          pixels[y * width + x] = 0xFF666666;
-        } else {
-          pixels[y * width + x] = 0xFFEEEEEE;
-        }
-      }
-    }
+    VkWaylandSurfaceCreateInfoKHR createInfo = (VkWaylandSurfaceCreateInfoKHR) {};
+    createInfo.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
+    createInfo.display = ls->display;
+    createInfo.surface = ls->surface;
 
-    // we cannot commit the surface yet. We have to wait until the configure call!
+    check(vkCreateWaylandSurfaceKHR(params.instance, &createInfo, NULL, &ls->vk_surface) != VK_SUCCESS);
 
-    munmap(shm_data, shm_size);
+    // If we don't use Vulkan, this is a method for writing to the screen via binding a buffer to memory, writing it, and sending it
+    // // TODO: move to helper
+    // if (ls->shm == NULL) {
+    //     exception_msg("Wayland has misbehaved and not supplied a wl_shm global");
+    // }
+    // // to find valid pixel formats: wl_shm_add_listener();
+    // // however: "Two formats are required to be supported: ARGB8888, and XRGB8888, which are 24-bit color, with and without an alpha channel respectively."
+    // char uuid[128], base_uuid[] = "/wl_shm-";
+    // memset(uuid, 0, sizeof(uuid));
+    // memcpy(uuid, base_uuid, sizeof(base_uuid));
+    // uuid_to_string(generate_uuid(), uuid + sizeof(base_uuid) - 1, 36);
+    // int fd = shm_open(uuid, O_EXCL | O_CREAT | O_RDWR, 0600);
+    // if (fd == -1) {
+    //     exception_format("Failed to open shared memory file. errno = %d", errno);
+    // }
+    // // hardcoding for now - TODO
+    // const int width = 1920, height = 1080, bytes_per_pixel = 4, num_buffers = 2;
+    // const int shm_size = width * height * bytes_per_pixel * num_buffers;
+    // ret = 0;
+    // do {
+    //     ret = ftruncate(fd, shm_size);
+    // } while (ret == 0 && errno == EINTR);
+    // if (ret == -1) {
+    //     exception_format("Failed to allocate shared memory buffer of size %d: errno = %d", shm_size, errno);
+    // }
+    // uint8_t *shm_data = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    // if (shm_data == MAP_FAILED) {
+    //     exception_format("Failed to map shared memory buffer to memory. errno = %d", errno);
+    // }
+    // struct wl_shm_pool *shm_pool = wl_shm_create_pool(ls->shm, fd, shm_size);
+    // ls->buffer = wl_shm_pool_create_buffer(shm_pool, 0, width, height, width * bytes_per_pixel, WL_SHM_FORMAT_ARGB8888);
+    // wl_buffer_add_listener(ls->buffer, &wl_buffer_listener, ls);
+    // wl_shm_pool_destroy(shm_pool);
+    // close(fd);
+    // uint32_t *pixels = (uint32_t *)&shm_data[0];
+    // memset(pixels, 0, width * height * bytes_per_pixel);
+    // // checkerboard pattern for testing
+    // for (int y = 0; y < height; ++y) {
+    //   for (int x = 0; x < width; ++x) {
+    //     if ((x + y / 8 * 8) % 16 < 8) {
+    //       pixels[y * width + x] = 0xFF666666;
+    //     } else {
+    //       pixels[y * width + x] = 0xFFEEEEEE;
+    //     }
+    //   }
+    // }
 
-    wl_surface_attach(ls->surface, ls->buffer, 0, 0);
-    // wl_surface_damage(ls->surface, 0, 0, INT32_MAX, INT32_MAX);
-    wl_surface_commit(ls->surface);
-    printf("Commited the surface\n");
+    // // we cannot commit the surface yet. We have to wait until the configure call!
+
+    // munmap(shm_data, shm_size);
+
+    // wl_surface_attach(ls->surface, ls->buffer, 0, 0);
+    // // wl_surface_damage(ls->surface, 0, 0, INT32_MAX, INT32_MAX);
+    // wl_surface_commit(ls->surface);
+    // printf("Commited the surface\n");
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = {
 	.configure = xdg_surface_configure,
 };
 
+static void xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height, struct wl_array *states) {
+    LocalState *ls = (LocalState *)data;
+    ls->width = width;
+    ls->height = height;
+    ls->configured = true;
+}
+
+static const struct xdg_toplevel_listener xdg_toplevel_listener = {
+    .configure = xdg_toplevel_configure,
+};
+
 InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
     int ret = 0;
     LocalState* ls = (LocalState*) calloc(1, sizeof(LocalState));
+    ls->vk_instance = params.instance;
+    ls->vk_surface = VK_NULL_HANDLE;
     StaticCache_add(cleanup, LocalState_cleanup, (void*) ls);
     // Connect to the Wayland display named name. If name is NULL, its value
     // will be replaced with the WAYLAND_DISPLAY environment variable if it is
@@ -230,7 +260,6 @@ InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
     xdg_toplevel_set_app_id(ls->xdg_toplevel, "isaacph-vulkan-test");
     wl_surface_commit(ls->surface);
 
-
     printf("Wayland surface created\n");
     return (InitSurface) {
         .windowHandle = (WindowHandle) {
@@ -240,7 +269,7 @@ InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
             .width = 0,
             .height = 0,
         },
-        .surface = NULL,
+        .surface = ls->vk_surface,
     };
 }
 

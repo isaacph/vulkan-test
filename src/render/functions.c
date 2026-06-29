@@ -113,5 +113,6 @@ void init_device_functions(VkDevice device) {
     check(vkFreeCommandBuffers = (PFN_vkFreeCommandBuffers)load(device, "vkFreeCommandBuffers"));
     check(vkFlushMappedMemoryRanges = (PFN_vkFlushMappedMemoryRanges)load(device, "vkFlushMappedMemoryRanges"));
     check(vkDeviceWaitIdle = (PFN_vkDeviceWaitIdle)load(device, "vkDeviceWaitIdle"));
+    check(vkCreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)load(device, "vkCreateWaylandSurfaceKHR"));
 }
 
