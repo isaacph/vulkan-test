@@ -1,0 +1,1 @@
+khronos_validation.message_id_filter = VUID-VkSwapchainCreateInfoKHR-presentMode-02839

@@ -693,9 +693,9 @@ int main() {
         surface = ret.surface;
         windowHandle = ret.windowHandle;
         size = ret.size;
-        // assert(surface != NULL);
-        // assert(size.width != 0);
-        // assert(size.height != 0);
+        assert(surface != NULL);
+        assert(size.width != 0);
+        assert(size.height != 0);
         // assert(size.width != DEFAULT_SURFACE_SIZE.width && size.height != DEFAULT_SURFACE_SIZE.height);
     }
     {
@@ -741,11 +741,11 @@ int main() {
         InitSwapchainParams params = {
             .extent = size,
 
-    //         .device = device,
-    //         .physicalDevice = physicalDevice,
-    //         .surface = surface,
-    //         .surfaceFormat = surfaceFormat,
-    //         .graphicsQueueFamily = graphicsQueueFamily,
+            .device = device,
+            .physicalDevice = physicalDevice,
+            .surface = surface,
+            .surfaceFormat = surfaceFormat,
+            .graphicsQueueFamily = graphicsQueueFamily,
 
             .oldSwapchain = VK_NULL_HANDLE,
             .swapchainCleanupHandle = swapchainCleanupHandle,
@@ -936,6 +936,7 @@ int main() {
 
             if (update.shouldDraw && size.width * size.height > 0) {
                 frameNumber++;
+                // printf("frame number %d\n", frameNumber);
                 params.swapchainExtent = size;
                 params.drawImageExtent = size;
                 params.drawImage = drawImage;
@@ -950,7 +951,7 @@ int main() {
                     params.swapchainSemaphore[i] = swapchainSemaphores[i];
                 }
 
-                rc_draw(params);
+               rc_draw(params);
                 // if (frameNumber >= 5) {
                 //     exception_msg("temp pause");
                 // }

@@ -13,8 +13,9 @@ const char* const ENABLE_DEVICE_EXTENSIONS[] = {
     "VK_KHR_swapchain",
     "VK_KHR_dynamic_rendering",
     "VK_KHR_synchronization2",
+    "VK_KHR_swapchain_maintenance1",
 };
-const size_t ENABLE_DEVICE_EXTENSIONS_COUNT = 3;
+const size_t ENABLE_DEVICE_EXTENSIONS_COUNT = 4;
 
 static void on_destroy_device(void* ptr, sc_t id) {
     VkDevice device = (VkDevice) ptr;
@@ -218,10 +219,10 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
     {
         void* pNext = NULL;
         // with VK_EXT_surface_maintenance1
-        VkSurfacePresentModeEXT c4 = {
-            .sType = VK_STRUCTURE_TYPE_SURFACE_PRESENT_MODE_EXT,
+        VkSurfacePresentModeKHR c4 = {
+            .sType = VK_STRUCTURE_TYPE_SURFACE_PRESENT_MODE_KHR,
             .pNext = pNext,
-            .presentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR,
+            .presentMode = VK_PRESENT_MODE_FIFO_KHR,
         };
         pNext = &c4;
         // VK_KHR_get_surface_capabilities2
@@ -249,6 +250,7 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
     // check for available features and make feature request
     VkPhysicalDeviceFeatures2 features = {0};
     VkPhysicalDeviceVulkan13Features features13 = {0};
+    VkPhysicalDeviceSwapchainMaintenance1FeaturesKHR featuresSwapchainMaintenance1 = {0};
     {
         VkPhysicalDevice physDevice = chosenPhysicalDevice;
         features = (VkPhysicalDeviceFeatures2) {
@@ -257,10 +259,15 @@ InitDevice rc_init_device(InitDeviceParams params, StaticCache* cleanup) {
         };
         features13 = (VkPhysicalDeviceVulkan13Features) {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
-            .dynamicRendering = true,
-            .synchronization2 = true,
+            .pNext = &featuresSwapchainMaintenance1,
         };
-        // vkGetPhysicalDeviceFeatures2(chosenPhysicalDevice, &features);
+        featuresSwapchainMaintenance1 = (VkPhysicalDeviceSwapchainMaintenance1FeaturesKHR) {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_KHR,
+        };
+        vkGetPhysicalDeviceFeatures2(chosenPhysicalDevice, &features);
+        features13.dynamicRendering = true;
+        features13.synchronization2 = true;
+        featuresSwapchainMaintenance1.swapchainMaintenance1 = true;
         // TODO: check for enough physical device features?
         // validateEnabledFeatures(&features);
     }

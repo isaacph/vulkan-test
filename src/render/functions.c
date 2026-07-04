@@ -39,6 +39,10 @@ void init_instance_functions(VkInstance instance) {
     check(vkGetPhysicalDeviceWin32PresentationSupportKHR = (PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)load(instance, "vkGetPhysicalDeviceWin32PresentationSupportKHR"));
 #endif
     check(vkGetPhysicalDeviceMemoryProperties = (PFN_vkGetPhysicalDeviceMemoryProperties)load(instance, "vkGetPhysicalDeviceMemoryProperties"));
+#if defined(__linux__)
+    check(vkCreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)load(instance, "vkCreateWaylandSurfaceKHR"));
+#endif
+    check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR = (PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR)load(instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR"));
 }
 
 void init_device_functions(VkDevice device) {
@@ -113,6 +117,5 @@ void init_device_functions(VkDevice device) {
     check(vkFreeCommandBuffers = (PFN_vkFreeCommandBuffers)load(device, "vkFreeCommandBuffers"));
     check(vkFlushMappedMemoryRanges = (PFN_vkFlushMappedMemoryRanges)load(device, "vkFlushMappedMemoryRanges"));
     check(vkDeviceWaitIdle = (PFN_vkDeviceWaitIdle)load(device, "vkDeviceWaitIdle"));
-    check(vkCreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)load(device, "vkCreateWaylandSurfaceKHR"));
 }
 

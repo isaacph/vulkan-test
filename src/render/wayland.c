@@ -19,7 +19,6 @@
 #include <sys/stat.h>        /* For mode constants */
 #include <fcntl.h>           /* For O_* constants */
 #include <unistd.h>          /* For ftruncate */
-#include "../util/uuid.h"
 #include <poll.h>
 #include <vulkan/vulkan_wayland.h>
 
@@ -76,8 +75,13 @@ typedef struct LocalState {
     VkSurfaceKHR vk_surface;
     VkInstance vk_instance;
     int wayland_fd;
-    bool configured;
+    bool surface_configured;
+    bool toplevel_configured;
+    uint32_t last_acked_serial;
     int width, height;
+    uint32_t serial;
+    bool shouldDraw;
+    bool shouldResize;
 } LocalState;
 
 static void LocalState_cleanup(void *ptr, sc_t id_ignored) {
@@ -91,10 +95,10 @@ static void LocalState_handle_global(void *data, struct wl_registry *wl_registry
         ls->compositor = wl_registry_bind(wl_registry, name, &wl_compositor_interface, 4 /* override version to latest at time of writing */);
         printf("Global added to name %d: %s\n", name, interface);
     }
-    if (!strcmp(interface, wl_shm_interface.name)) {
-        ls->shm = wl_registry_bind(wl_registry, name, &wl_shm_interface, 1);
-        printf("Global added to name %d: %s\n", name, interface);
-    }
+    // if (!strcmp(interface, wl_shm_interface.name)) {
+    //     ls->shm = wl_registry_bind(wl_registry, name, &wl_shm_interface, 1);
+    //     printf("Global added to name %d: %s\n", name, interface);
+    // }
     if (!strcmp(interface, xdg_wm_base_interface.name)) {
         ls->xdg_base = wl_registry_bind(wl_registry, name, &xdg_wm_base_interface, 1);
         printf("Global added to name %d: %s\n", name, interface);
@@ -126,24 +130,38 @@ static const struct wl_buffer_listener wl_buffer_listener = {
     .release = wl_buffer_release,
 };
 
-static void xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial) {
-    LocalState *ls = (LocalState *)data;
-    int ret = 0;
-    if (!ls->configured) {
-        // We don't know yet what the window size is, if needed at all, so not sure how to init a renderer
-        exception_msg("xdg_surface_configure called before xdg_toplevel_configure. TODO: handle this case");
+void ack_configure(LocalState* ls) {
+    if (ls->last_acked_serial == ls->serial) {
+        printf("Cannot re-ack configure right now - already acked this serial\n");
+        return;
     }
+    ls->last_acked_serial = ls->serial;
+
     // TODO: only ack once we have applied state changes requested by the xdg surface
     printf("Preparing to ACK\n");
-    xdg_surface_ack_configure(xdg_surface, serial);
 
-    VkWaylandSurfaceCreateInfoKHR createInfo = (VkWaylandSurfaceCreateInfoKHR) {};
-    createInfo.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
-    createInfo.display = ls->display;
-    createInfo.surface = ls->surface;
+    VkWaylandSurfaceCreateInfoKHR createInfo = {
+        .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
+        .display = ls->display,
+        .surface = ls->surface,
+        .flags = 0,
+        .pNext = NULL,
+    };
 
-    check(vkCreateWaylandSurfaceKHR(params.instance, &createInfo, NULL, &ls->vk_surface) != VK_SUCCESS);
+    check(vkCreateWaylandSurfaceKHR(ls->vk_instance, &createInfo, NULL, &ls->vk_surface));
+    printf("Surface created\n");
 
+    xdg_surface_ack_configure(ls->xdg_surface, ls->serial);
+    // ls->shouldResize = true;
+}
+
+static void xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial) {
+    LocalState *ls = (LocalState *)data;
+    ls->serial = serial;
+    printf("Surface configured: %d, toplevel configured: %d\n", ls->surface_configured, ls->toplevel_configured);
+    if (ls->toplevel_configured) {
+        ack_configure(ls);
+    }
     // If we don't use Vulkan, this is a method for writing to the screen via binding a buffer to memory, writing it, and sending it
     // // TODO: move to helper
     // if (ls->shm == NULL) {
@@ -209,11 +227,29 @@ static void xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel
     LocalState *ls = (LocalState *)data;
     ls->width = width;
     ls->height = height;
-    ls->configured = true;
+    ls->shouldResize = true;
+    ls->toplevel_configured = true;
+    printf("Surface configured: %d, toplevel configured: %d\n", ls->surface_configured, ls->toplevel_configured);
+    printf("bounds set: %d %d\n", width, height);
+    if (ls->surface_configured) {
+        ack_configure(ls);
+    }
+    ls->shouldDraw = true;
 }
 
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
     .configure = xdg_toplevel_configure,
+};
+
+static const struct wl_callback_listener wl_surface_frame_listener;
+static void wl_surface_frame_listener_func(void *data, struct wl_callback *wl_callback, uint32_t callback_data) {
+    LocalState *ls = (LocalState *)data;
+    ls->shouldDraw = true;
+    struct wl_callback *frame_callback = wl_surface_frame(ls->surface);
+    wl_callback_add_listener(frame_callback, &wl_surface_frame_listener, (void *)ls);
+}
+static const struct wl_callback_listener wl_surface_frame_listener = {
+	.done = wl_surface_frame_listener_func
 };
 
 InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
@@ -258,16 +294,40 @@ InitSurface rc_init_surface(InitSurfaceParams params, StaticCache* cleanup) {
     ls->xdg_toplevel = xdg_surface_get_toplevel(ls->xdg_surface);
     xdg_toplevel_set_title(ls->xdg_toplevel, "Test wayland app");
     xdg_toplevel_set_app_id(ls->xdg_toplevel, "isaacph-vulkan-test");
+    xdg_toplevel_add_listener(ls->xdg_toplevel, &xdg_toplevel_listener, ls);
     wl_surface_commit(ls->surface);
 
-    printf("Wayland surface created\n");
+    WindowHandle windowHandle = {
+        .localState = ls,
+    };
+    // while (ls->vk_surface == VK_NULL_HANDLE) {
+    //     printf("We still don't have a surface, let's try updating again\n");
+    //     rc_window_update(&windowHandle);
+    // }
+
+    if (wl_display_roundtrip(ls->display) == -1) {
+        printf("Received error code from wl_display_roundtrip\n");
+    }
+
+    while (ls->vk_surface == VK_NULL_HANDLE) {
+        printf("Refreshing until we get good enough params. surface %p\n", ls->vk_surface);
+        rc_window_update(&windowHandle);
+    }
+
+    if (ls->width == 0 || ls->height == 0) {
+        ls->width = params.size.width;
+        ls->height = params.size.height;
+    }
+    printf("Wayland surface created successfully\n");
+
+    struct wl_callback *frame_callback = wl_surface_frame(ls->surface);
+    wl_callback_add_listener(frame_callback, &wl_surface_frame_listener, (void *)ls);
+
     return (InitSurface) {
-        .windowHandle = (WindowHandle) {
-            .localState = ls,
-        },
+        .windowHandle = windowHandle,
         .size = (VkExtent2D) {
-            .width = 0,
-            .height = 0,
+            .width = ls->width,
+            .height = ls->height,
         },
         .surface = ls->vk_surface,
     };
@@ -291,7 +351,7 @@ WindowUpdate rc_window_update(WindowHandle* windowHandle) {
                 .windowClosed = false,
                 .newSize = 0,
                 .resize = false,
-                .shouldDraw = false,
+                .shouldDraw = true,
             };
         }
         rc = poll(fds, 1, 0);
@@ -308,11 +368,21 @@ WindowUpdate rc_window_update(WindowHandle* windowHandle) {
             wl_display_cancel_read(ls->display);
         }
     }
+    bool shouldDraw = ls->shouldDraw;
+    ls->shouldDraw = false;
+    bool shouldResize = ls->shouldResize && ls->width != 0 && ls->height != 0;
+    ls->shouldResize = false;
+    if (shouldResize) {
+        printf("Propagating resize. w: %d, h: %d\n", ls->width, ls->height);
+    }
     return (WindowUpdate) {
         .windowClosed = false,
-        .newSize = 0,
-        .resize = false,
-        .shouldDraw = false,
+        .newSize = (VkExtent2D) {
+            .width = ls->width,
+            .height = ls->height,
+        },
+        .resize = shouldResize,
+        .shouldDraw = shouldDraw,
     };
 }
 

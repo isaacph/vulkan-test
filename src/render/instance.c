@@ -17,6 +17,7 @@ const char* const ENABLE_EXTENSIONS[] = {
 #endif
     "VK_KHR_get_surface_capabilities2", // it doesn't seem to care whether we enable this but oh well
     "VK_EXT_swapchain_colorspace",
+    "VK_KHR_surface_maintenance1",
     "VK_EXT_debug_utils",
 };
 const size_t ENABLE_EXTENSIONS_COUNT = sizeof(ENABLE_EXTENSIONS) / sizeof(ENABLE_EXTENSIONS[0]);

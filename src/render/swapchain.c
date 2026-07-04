@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <vulkan/vulkan_core.h>
 
 typedef struct SwapchainCleanup {
     VkDevice device;
@@ -64,11 +65,10 @@ InitSwapchain rc_init_swapchain(InitSwapchainParams params, StaticCache* cleanup
         };
         pNext = &a;
         */
-        // with VK_EXT_surface_maintenance1
-        VkSurfacePresentModeEXT c4 = {
-            .sType = VK_STRUCTURE_TYPE_SURFACE_PRESENT_MODE_EXT,
+        VkSurfacePresentModeKHR c4 = {
+            .sType = VK_STRUCTURE_TYPE_SURFACE_PRESENT_MODE_KHR,
             .pNext = pNext,
-            .presentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR,
+            .presentMode = VK_PRESENT_MODE_FIFO_KHR,
         };
         pNext = &c4;
         // VK_KHR_get_surface_capabilities2
@@ -79,23 +79,31 @@ InitSwapchain rc_init_swapchain(InitSwapchainParams params, StaticCache* cleanup
         };
 
         pNext = NULL;
-        // doesn't seem useful rn
-        // // with VK_KHR_surface_protected_capabilities
-        // VkSurfaceProtectedCapabilitiesKHR c1 = {
-        //     .sType = VK_STRUCTURE_TYPE_SURFACE_PROTECTED_CAPABILITIES_KHR,
-        //     .pNext = pNext,
-        // };
-        // pNext = &c1;
         VkSurfaceCapabilities2KHR capabilities = {
             .sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR,
             .pNext = pNext,
         };
         check(vkGetPhysicalDeviceSurfaceCapabilities2KHR(params.physicalDevice, &info, &capabilities));
+        printf("Swapchain capability image counts, min: %d, max: %d\n", capabilities.surfaceCapabilities.minImageCount,
+                capabilities.surfaceCapabilities.maxImageCount);
+
+        VkSurfaceCapabilitiesKHR capabilitiesOld = {};
+        check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(params.physicalDevice, params.surface, &capabilitiesOld));
+        printf("Swapchain capability image counts (old), min: %d, max: %d\n", capabilitiesOld.minImageCount,
+                capabilitiesOld.maxImageCount);
+
         // validate capabilities in capabilities.surfaceCapabilities
         // https://github.com/KhronosGroup/Vulkan-Samples/tree/main/samples/performance/swapchain_images
         if (RC_SWAPCHAIN_LENGTH < capabilities.surfaceCapabilities.minImageCount ||
-            RC_SWAPCHAIN_LENGTH > capabilities.surfaceCapabilities.maxImageCount) {
-            exception_msg("Device does not support 3 swapchain images\n");
+            (RC_SWAPCHAIN_LENGTH > capabilities.surfaceCapabilities.maxImageCount &&
+                 capabilities.surfaceCapabilities.maxImageCount != 0)) {
+            exception_format("Device does not support %d swapchain images. Minimum images: %d, maximum images: %d\n"
+                            "%d < %d || (%d > %d && %d != 0)\n",
+                    RC_SWAPCHAIN_LENGTH,
+                    capabilities.surfaceCapabilities.minImageCount, capabilities.surfaceCapabilities.maxImageCount,
+                    RC_SWAPCHAIN_LENGTH, capabilities.surfaceCapabilities.minImageCount,
+                    RC_SWAPCHAIN_LENGTH, capabilities.surfaceCapabilities.maxImageCount,
+                    capabilities.surfaceCapabilities.maxImageCount);
         }
 
         extent = (VkExtent2D) {
@@ -125,6 +133,14 @@ InitSwapchain rc_init_swapchain(InitSwapchainParams params, StaticCache* cleanup
             extent.height = MIN(extent.height, capabilities.surfaceCapabilities.maxImageExtent.height);
         }
     }
+
+    VkPresentModeKHR preferredModes[] = { VK_PRESENT_MODE_FIFO_KHR };
+
+    VkSwapchainPresentModesCreateInfoEXT swapchainPresentModes = {0};
+    swapchainPresentModes.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODES_CREATE_INFO_EXT;
+    swapchainPresentModes.pNext = NULL; // Or match your existing pNext attachments
+    swapchainPresentModes.presentModeCount = 1;
+    swapchainPresentModes.pPresentModes = preferredModes;
     
     // create new swapchain
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
@@ -132,7 +148,7 @@ InitSwapchain rc_init_swapchain(InitSwapchainParams params, StaticCache* cleanup
         printf("New swapchain extent: %d x %d\n", extent.width, extent.height);
         VkSwapchainCreateInfoKHR createInfo = {
             .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-            .pNext = NULL,
+            .pNext = &swapchainPresentModes,
             .flags = 0,
             .surface = params.surface,
             // https://github.com/KhronosGroup/Vulkan-Samples/tree/main/samples/performance/swapchain_images

@@ -78,6 +78,7 @@ EXTERN PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR INIT;
 EXTERN PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR vkGetPhysicalDeviceWin32PresentationSupportKHR INIT;
 #endif
 EXTERN PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties INIT;
+EXTERN PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR vkGetPhysicalDeviceSurfaceCapabilitiesKHR INIT;
 
 // device functions
 EXTERN PFN_vkGetDeviceQueue vkGetDeviceQueue INIT;
@@ -149,7 +150,9 @@ EXTERN PFN_vkMapMemory vkMapMemory INIT;
 EXTERN PFN_vkCmdCopyBufferToImage vkCmdCopyBufferToImage INIT;
 EXTERN PFN_vkFlushMappedMemoryRanges vkFlushMappedMemoryRanges INIT;
 EXTERN PFN_vkDeviceWaitIdle vkDeviceWaitIdle INIT;
+#if defined(__linux__)
 EXTERN PFN_vkCreateWaylandSurfaceKHR vkCreateWaylandSurfaceKHR INIT;
+#endif
 
 #undef EXTERN
 #undef INIT

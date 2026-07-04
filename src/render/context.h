@@ -45,7 +45,7 @@ typedef struct InitInstance {
 InitInstance rc_init_instance(PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr, bool debug, StaticCache* cleanup);
 
 // implementation and WindowHandle are per OS
-static const VkExtent2D DEFAULT_SURFACE_SIZE = { .width = INT_MIN, .height = INT_MIN };
+static const VkExtent2D DEFAULT_SURFACE_SIZE = { .width = 800, .height = 600 };
 typedef void (*OnWindowFunction)(void*);
 typedef struct InitSurfaceParams {
     VkInstance instance;

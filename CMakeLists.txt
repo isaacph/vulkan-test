@@ -133,6 +133,7 @@ endif (UNIX)
 # set(SUBSYSTEM_LINKER_OPTIONS "/SUBSYSTEM:WINDOWS")
 
 configure_file(src/config.h.in config.h)
+configure_file(vk_layer_settings.txt vk_layer_settings.txt)
 add_library(Main STATIC
     src/util/backtrace.c
     src/util/memory.c
